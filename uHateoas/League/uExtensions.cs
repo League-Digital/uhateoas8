@@ -52,7 +52,6 @@ namespace uHateoas.League
 
         public static string StripHtml(this string s)
         {
-            // https://stackoverflow.com/questions/787932/using-c-sharp-regular-expressions-to-remove-html-tags/787987
             var regex = new Regex(@"</?\w+((\s+\w+(\s*=\s*(?:"".*?""|'.*?'|[^'"">\s]+))?)+\s*|\s*)/?>", RegexOptions.Singleline);
             return regex.Replace(s, "");
         }
@@ -135,9 +134,6 @@ namespace uHateoas.League
         public static string ChangeBinary(this string s)
         {
             return BinaryReplacements.Keys.Aggregate(s, (current, toReplace) => current.Replace(toReplace, BinaryReplacements[toReplace]));
-            //return s.Replace(" eq ", " = ").Replace(" ge ", " >= ").Replace(" gt ", " > ").Replace(" le ", " <= ")
-            //    .Replace(" lt ", " < ").Replace(" ne ", " != ").Replace("'", "\"").Replace(" and ", " && ")
-            //    .Replace(" or ", " || ");
         }
     }
 }
