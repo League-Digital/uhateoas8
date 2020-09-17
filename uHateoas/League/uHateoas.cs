@@ -20,6 +20,7 @@ using Umbraco.Core.Models;
 using Umbraco.Core.Models.Membership;
 using Umbraco.Core.Models.PublishedContent;
 using Umbraco.Core.Services;
+using Umbraco.Web;
 using static System.Int32;
 using Formatting = Newtonsoft.Json.Formatting;
 using TimeSpan = System.TimeSpan;
@@ -53,7 +54,6 @@ namespace uHateoas.League
         private int CacheSeconds { get; set; }
         private bool IsDebug { get; set; }
         private int QueryMaxItems { get; set; }
-
         private string RequestAction { get; set; }
         private string RequestDocType { get; set; }
         private string RequestCurrentModel { get; set; }
@@ -193,15 +193,9 @@ namespace uHateoas.League
             RequestHtml = Context.Request["html"] ?? "";
             RequestSkip = Context.Request["skip"] ?? "";
 
-            //Int32.TryParse(Context.Request["QueryMaxItems"] ?? "", out QueryMaxItems);
-            //if (QueryMaxItems==0)
-            //{
-            //    QueryMaxItems = 100;
-            //}
             QueryMaxItems = 1000;
             RequestTake = Context.Request["take"] ?? "";
             Int32.TryParse(RequestTake, out int intRequestTake);
-            //if (string.IsNullOrEmpty(RequestTake) || intRequestTake>QueryMaxItems)
             if (string.IsNullOrEmpty(RequestTake))
             {
                 RequestTake = QueryMaxItems.ToString();
@@ -214,7 +208,6 @@ namespace uHateoas.League
 
             if (string.IsNullOrEmpty(RequestNoCache))
             {
-                //Context.Response.AddHeader("Cache-Control", "public; max-age=3600");
                 Context.Response.Cache.SetCacheability(HttpCacheability.Public);
                 Context.Response.Cache.SetMaxAge(new TimeSpan(CacheHours, CacheMinutes, CacheSeconds));
             }
@@ -251,7 +244,6 @@ namespace uHateoas.League
                     new JsonSerializerSettings()
                     {
                         ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-                        //PreserveReferencesHandling = PreserveReferencesHandling.Objects
                     });
                 return new HtmlString(str);
             }
@@ -385,7 +377,6 @@ namespace uHateoas.League
                     throw new Exception("Access Denied");
 
                 Dictionary<string, object> returnProperties = new Dictionary<string, object>();
-                //Dictionary<string, object> contentProperties = new Dictionary<string, object>();
                 SortedDictionary<string, object> properties = new SortedDictionary<string, object>();
                 PropertyInfo[] props = typeof(IPublishedContent).GetProperties();
                 List<object> links = new List<object>();
@@ -503,15 +494,6 @@ namespace uHateoas.League
                         }
                     }
                 }
-
-                //foreach (IPublishedProperty pal in node.Properties)
-                //{
-                //    if (pal != null)
-                //    {
-                //        var prop = SimplyfyProperty(pal, node);
-                //        //properties.Add(prop.Key, prop.Value);
-                //    }
-                //}
 
                 if (propertyNames.Any())
                 {
