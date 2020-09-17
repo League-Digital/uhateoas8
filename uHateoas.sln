@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30503.244
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "uHateoas", "uHateoas\uHateoas.csproj", "{9336A6BA-3145-41B1-B166-07A938FB618F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "uHateoas", "uHateoas\uHateoas.csproj", "{97ADC174-B4C8-4E7B-B25A-C635FC7D159F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,15 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{9336A6BA-3145-41B1-B166-07A938FB618F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9336A6BA-3145-41B1-B166-07A938FB618F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9336A6BA-3145-41B1-B166-07A938FB618F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9336A6BA-3145-41B1-B166-07A938FB618F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97ADC174-B4C8-4E7B-B25A-C635FC7D159F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97ADC174-B4C8-4E7B-B25A-C635FC7D159F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97ADC174-B4C8-4E7B-B25A-C635FC7D159F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97ADC174-B4C8-4E7B-B25A-C635FC7D159F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {1861AC60-8CF0-450C-8A9A-72E784C6F48C}
+		SolutionGuid = {D5CF3ECA-7E58-4E79-948F-8599B208F0E5}
 	EndGlobalSection
 EndGlobal
