@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Web;
+using System.Web.Mvc;
 using System.Web.Security;
 using System.Xml;
 using Umbraco.Core;
@@ -164,7 +165,9 @@ namespace uHateoas.League
                     CacheSeconds = TryParse(cacheData[2], out int cacheSeconds) ? cacheSeconds : 0;
                 }
                 if (IsDebug)
+                {
                     LogHelper.Info(GetType(), "uHateoas: Caching is set up  (duration is currently " + CacheHours + ":" + CacheMinutes + ":" + CacheSeconds + ")");
+                }
             }
             else
             {
@@ -493,7 +496,7 @@ namespace uHateoas.League
                 {
                     if (pal != null)
                     {
-                        if (useAllProperties || propertyNames.Contains(pal.PropertyTypeAlias.ToLower()))
+                        if (useAllProperties || propertyNames.Contains(pal.Alias.ToLower()))
                         {
                             var prop = SimplyfyProperty(pal, node);
                             properties.Add(prop.Key, prop.Value);
@@ -523,20 +526,6 @@ namespace uHateoas.League
                     properties = selectedProperties;
                 }
 
-                //if (!string.IsNullOrEmpty(RequestSelect))
-                //{
-                //    var properties1 = properties;
-                //    var selectedProperties = new SortedDictionary<string, object>();
-
-                //    foreach (var a in properties.Where(p => RequestSelect.ToLower().Split(',').Contains(p.Key.ToLower())))
-                //    {
-                //        selectedProperties.Add(a.Key, properties1[a.Key]);
-                //    }
-
-                //    properties = selectedProperties;
-                //}
-
-                // resolve any nested content nodes specified by the resolveContent switch
                 ResolveContent(properties);
 
                 returnProperties.Add("properties", properties);
@@ -961,10 +950,10 @@ namespace uHateoas.League
 
         private KeyValuePair<string, object> SimplyfyProperty(IPublishedProperty prop, IPublishedContent node)
         {
-            object val = prop.Value;
-            PublishedPropertyType pubPropType = node.ContentType.GetPropertyType(prop.PropertyTypeAlias);
-            string propertyEditorAlias = pubPropType.PropertyEditorAlias;
-            string propName = prop.PropertyTypeAlias; // prop.PropertyTypeAlias.Substring(0, 1).ToUpper() + prop.PropertyTypeAlias.Substring(1);
+            object val = prop.GetValue();
+            PublishedPropertyType pubPropType = node.ContentType.GetPropertyType(prop.Alias);
+            string propertyEditorAlias = pubPropType.Alias;
+            string propName = prop.Alias; // prop.PropertyTypeAlias.Substring(0, 1).ToUpper() + prop.PropertyTypeAlias.Substring(1);
             string propTitle = Regex.Replace(propName, "(\\B[A-Z])", " $1");
             if (val != null)
             {
@@ -983,29 +972,13 @@ namespace uHateoas.League
                     }
                 }
 
-                //if (val.ToString().Contains("/>") || val.ToString().Contains("</"))
-                //{
-                //    try
-                //    {
-                //        XmlDocument doc = new XmlDocument();
-                //        doc.LoadXml(val.ToString());
-                //        val = JsonConvert.SerializeXmlNode(doc);
-                //    }
-                //    catch (Exception)
-                //    {
-                //        if (EncodeHtml)
-                //            val = Context.Server.HtmlEncode(val.ToString());
-                //    }
-                //}
-
-                val = ResolveMedia(propName, val); //.ToString();
-                val = ResolveToIds(propName, val);//.ToString();
+                val = ResolveMedia(propName, val); 
+                val = ResolveToIds(propName, val);
                 if (!string.IsNullOrEmpty(RequestHtml) && string.Equals(RequestHtml, "false", StringComparison.OrdinalIgnoreCase))
                     val = val.ToString().StripHtml();
 
                 if (propertyEditorAlias == "Umbraco.MultipleTextstring")
                 {
-                    //val = (string[])prop.Value;
                     val = JsonConvert.SerializeObject(prop.Value as string[], Formatting.Indented,
                         new JsonSerializerSettings()
                         {
@@ -1070,7 +1043,7 @@ namespace uHateoas.League
 
                 if (propertyEditorAlias == "Umbraco.Grid")
                 {
-                    var model = prop.Value;
+                    var model = prop.GetValue();
                     var html = CreateHtmlHelper(model);
 
                     var asString = model as string;
@@ -1079,13 +1052,13 @@ namespace uHateoas.League
                         val = string.Empty;
                     }
                     else
-                        val = html.GetGridHtml(node, prop.PropertyTypeAlias, "GenesisGrid-fluid");
+                        val = html.GetGridHtml(node, prop.Alias, "GenesisGrid-fluid");
                 }
             }
             if (SimpleJson)
-                return new KeyValuePair<string, object>(prop.PropertyTypeAlias.ToFirstUpper(), SetPropType(val, GetPropType(val)));
+                return new KeyValuePair<string, object>(prop.Alias.ToFirstUpper(), SetPropType(val, GetPropType(val)));
 
-            return new KeyValuePair<string, object>(prop.PropertyTypeAlias, new { title = propTitle, value = SetPropType(val, GetPropType(val)), type = GetPropType(val), propertyEditor = propertyEditorAlias });
+            return new KeyValuePair<string, object>(prop.Alias, new { title = propTitle, value = SetPropType(val, GetPropType(val)), type = GetPropType(val), propertyEditor = propertyEditorAlias });
         }
 
         private KeyValuePair<string, object> GetValuePair(string alias, Dictionary<string, object> form, IContent newNode)
@@ -1131,11 +1104,6 @@ namespace uHateoas.League
             return actions;
         }
 
-        //private List<object> GetOptions(IPublishedContent model)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
         private List<object> ProcessTakeSkip(List<object> entities)
         {
             if (!string.IsNullOrEmpty(RequestSkip) && RequestSkip.IsNumeric() && !string.IsNullOrEmpty(RequestTake) && RequestTake.IsNumeric())
@@ -1155,24 +1123,7 @@ namespace uHateoas.League
 
             return entities;
         }
-
-        //private static Func<object, object> CreateGetter(Type runtimeType, string propertyName)
-        //{
-        //    var propertyInfo = runtimeType.GetProperty(propertyName);
-
-        //    // create a parameter (object obj)
-        //    var obj = Expression.Parameter(typeof(object), "obj");
-
-        //    // cast obj to runtimeType
-        //    var objT = Expression.TypeAs(obj, runtimeType);
-
-        //    // property accessor
-        //    var property = Expression.Property(objT, propertyInfo);
-
-        //    var convert = Expression.TypeAs(property, typeof(object));
-        //    return (Func<object, object>)Expression.Lambda(convert, obj).Compile();
-        //}
-
+       
         private IEnumerable<IPublishedContent> SortedData(IEnumerable<IPublishedContent> data)
         {
             IEnumerable<IPublishedContent> sortedData;
@@ -1198,7 +1149,7 @@ namespace uHateoas.League
                         break;
 
                     default:
-                        sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).PropertyTypeAlias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
+                        sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
                             (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
                         break;
                 }
@@ -1224,7 +1175,7 @@ namespace uHateoas.League
                         break;
 
                     default:
-                        sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).PropertyTypeAlias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
+                        sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
                             (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
                         break;
                 }
@@ -1278,18 +1229,6 @@ namespace uHateoas.League
             List<object> entities = new List<object>();
             if (!string.IsNullOrEmpty(RequestChildren))
             {
-                IEnumerable<IPublishedContent> children = currentModel.Children;
-                //List<IPublishedContent> childList = new List<IPublishedContent>();
-
-                //if (!string.IsNullOrEmpty(RequestWhere))
-                //{
-                //    childList = children.Where(RequestWhere.ChangeBinary()).OrderBy(x => x.SortOrder).ToList();
-                //}
-                //else
-                //{
-                //    childList.AddRange(children.OrderBy(x => x.SortOrder));
-                //}
-
                 var childList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? children.Where(RequestWhere.ChangeBinary()) : children).ToList();
 
                 List<object> childObjectList = childList.Select(x => Simplify(x)).Cast<object>().ToList();
@@ -1312,10 +1251,10 @@ namespace uHateoas.League
                                 .ToArray());
                     }
                     else if (property is IEnumerable<IPublishedContent> &&
-                             ((IEnumerable<IPublishedContent>) property).Any())
+                             ((IEnumerable<IPublishedContent>)property).Any())
                     {
                         var items = new List<string>();
-                        foreach (var mItem in (IEnumerable<IPublishedContent>) property)
+                        foreach (var mItem in (IEnumerable<IPublishedContent>)property)
                         {
                             if (mItem != null && !string.IsNullOrEmpty(mItem.Url))
                             {
@@ -1329,7 +1268,6 @@ namespace uHateoas.League
                     {
                         IPublishedContent mItem = property as IPublishedContent;
                         property = mItem.Url;
-                        //url = umbHelper.TypedMedia(property.ToString()).Url;
                     }
                 }
                 catch (Exception)
@@ -1337,9 +1275,8 @@ namespace uHateoas.League
                     property = "#";
                 }
             }
-            else if (property is IPublishedContent && (property as IPublishedContent).ItemType== PublishedItemType.Media)
-            //else if (property is IPublishedContent)
-            {  
+            else if (property is IPublishedContent && (property as IPublishedContent).ItemType == PublishedItemType.Media)
+            {
                 IPublishedContent mItem = property as IPublishedContent;
                 property = mItem.Id;
             }
@@ -1355,7 +1292,6 @@ namespace uHateoas.League
                 {
                     if (string.Equals(name, key, StringComparison.OrdinalIgnoreCase))
                     {
-                        //return "hello" + property.GetType().ToString();
                         try
                         {
                             if (property is IEnumerable<IPublishedContent> contents)
@@ -1384,20 +1320,6 @@ namespace uHateoas.League
             }
             return property;
         }
-
-        //private static string RenderViewToString(string viewName, object model)
-        //{
-        //    var viewData = new ViewDataDictionary();
-        //    viewData.Model = model;
-        //    using (var sw = new StringWriter())
-        //    {
-        //        var viewResult = ViewEngines.Engines.FindPartialView(ControllerContext, viewName);
-        //        var viewContext = new ViewContext(ControllerContext, viewResult.View, viewData, TempData, sw);
-        //        viewResult.View.Render(viewContext, sw);
-        //        viewResult.ViewEngine.ReleaseView(ControllerContext, viewResult.View);
-        //        return sw.GetStringBuilder().ToString();
-        //    }
-        //}
 
         private object SetPropType(object val, string guessType)
         {
