@@ -29,7 +29,7 @@ namespace uHateoas.League
 {
 
     [Serializable]
-    public class UHateoas : Dictionary<string, object>
+    public partial class UHateoas : Dictionary<string, object>
     {
         private Dictionary<string, object> Data { get; set; }
         private bool EncodeHtml { get; set; }
@@ -38,7 +38,7 @@ namespace uHateoas.League
         private IContentTypeService ContentTypeService { get; set; }
         private IContentService ContentService { get; set; }
         private IDataTypeService DataTypeService { get; set; }
-        private UmbracoHelper UmbHelper { get; set; }
+        private UmbracoHelper _umbracoHelper { get; set; }
         private IUser CurrentUser { get; set; }
         private List<object> Entities { get; set; }
         private List<object> Actions { get; set; }
@@ -73,6 +73,8 @@ namespace uHateoas.League
         private string RequestOrderBy { get; set; }
         private string RequestOrderByDesc { get; set; }
 
+        private readonly ILogger Logger;
+
         //Constructors
         public UHateoas()
         {
@@ -94,27 +96,12 @@ namespace uHateoas.League
             }
         }
 
-        public UHateoas(RenderModel model, bool simple = false)
-        {
-            Initialise();
-            foreach (var item in Process(model.Content, simple))
-            {
-                Add(item.Key, item.Value);
-            }
-        }
-
-        private class FakeView : IView
-        {
-            public void Render(ViewContext viewContext, TextWriter writer)
-            {
-            }
-        }
-
         private void Initialise()
         {
             Context = HttpContext.Current;
-            UContext = UmbracoContext.Current;
-            UmbHelper = new UmbracoHelper(UContext);
+            _umbracoHelper = Umbraco.Web.Composing.Current.UmbracoHelper;
+
+            //IUmbracoContextFactory 
 
             var template = string.Empty;
             var contentType = Context.Request.ContentType;
@@ -165,9 +152,7 @@ namespace uHateoas.League
                     CacheSeconds = TryParse(cacheData[2], out int cacheSeconds) ? cacheSeconds : 0;
                 }
                 if (IsDebug)
-                {
-                    LogHelper.Info(GetType(), "uHateoas: Caching is set up  (duration is currently " + CacheHours + ":" + CacheMinutes + ":" + CacheSeconds + ")");
-                }
+                    Logger.Info(GetType(), "uHateoas: Caching is set up  (duration is currently " + CacheHours + ":" + CacheMinutes + ":" + CacheSeconds + ")");
             }
             else
             {
@@ -225,7 +210,7 @@ namespace uHateoas.League
         public Dictionary<string, object> Process(dynamic currentPage)
         {
             CurrentPageId = currentPage.Id;
-            return Process(UmbHelper.TypedContent(CurrentPageId));
+            return Process(_umbracoHelper.TypedContent(CurrentPageId));
         }
 
         public Dictionary<string, object> Process(RenderModel model, bool simple = false)
@@ -233,7 +218,6 @@ namespace uHateoas.League
             CurrentPageId = model.Content.Id;
             return Process(model.Content, simple);
         }
-
 
         //Process Overrides
         public HtmlString Process()
@@ -339,7 +323,7 @@ namespace uHateoas.League
                 EncodeHtml = false;
                 if (!string.IsNullOrEmpty(RequestCurrentModel))
                 {
-                    model = UmbHelper.TypedContent(RequestCurrentModel);
+                    model = _umbracoHelper.TypedContent(RequestCurrentModel);
                 }
                 if (!string.IsNullOrEmpty(RequestEncodeHtml))
                 {
@@ -627,7 +611,7 @@ namespace uHateoas.League
                     ContentService.Delete(deleteNode, CurrentUser.Id);
                 else
                     ContentService.UnPublish(deleteNode, CurrentUser.Id);
-                node = UmbHelper.TypedContent(deleteNode.ParentId);
+                node = _umbracoHelper.TypedContent(deleteNode.ParentId);
             }
             catch (Exception ex)
             {
@@ -673,12 +657,12 @@ namespace uHateoas.League
                 if (publish)
                 {
                     Attempt<PublishStatus> result = ContentService.SaveAndPublishWithStatus(updateNode, CurrentUser.Id);
-                    node = UmbHelper.TypedContent(result.Result.ContentItem.Id);
+                    node = _umbracoHelper.TypedContent(result.Result.ContentItem.Id);
                 }
                 else
                 {
                     ContentService.Save(updateNode, CurrentUser.Id);
-                    node = UmbHelper.TypedContent(updateNode.Id);
+                    node = _umbracoHelper.TypedContent(updateNode.Id);
                 }
             }
             catch (Exception ex)
@@ -728,7 +712,7 @@ namespace uHateoas.League
                 if (publish)
                 {
                     Attempt<PublishStatus> result = ContentService.SaveAndPublishWithStatus(newNode, CurrentUser.Id);
-                    node = UmbHelper.TypedContent(result.Result.ContentItem.Id);
+                    node = _umbracoHelper.TypedContent(result.Result.ContentItem.Id);
                 }
                 else
                 {
@@ -954,7 +938,7 @@ namespace uHateoas.League
                     }
                 }
 
-                val = ResolveMedia(propName, val); 
+                val = ResolveMedia(propName, val);
                 val = ResolveToIds(propName, val);
                 if (!string.IsNullOrEmpty(RequestHtml) && string.Equals(RequestHtml, "false", StringComparison.OrdinalIgnoreCase))
                     val = val.ToString().StripHtml();
@@ -997,7 +981,7 @@ namespace uHateoas.League
                                     if (item.IndexOf("umb://document", StringComparison.CurrentCultureIgnoreCase) >= 0)
                                     {
                                         var udi = Udi.Parse(item);
-                                        var content = UmbHelper.TypedContent(udi);
+                                        var content = _umbracoHelper.TypedContent(udi);
                                         newProps.Add(x.Name,
                                             content != null
                                                 ? JToken.FromObject(Simplify(content))
@@ -1006,7 +990,7 @@ namespace uHateoas.League
                                     else if (item.IndexOf("umb://media", StringComparison.CurrentCultureIgnoreCase) >= 0)
                                     {
                                         var udi = Udi.Parse(item);
-                                        var media = UmbHelper.TypedMedia(udi);
+                                        var media = _umbracoHelper.TypedMedia(udi);
                                         newProps.Add(x.Name, media != null ? media.Url : x.Value.ToString());
                                     }
                                     else
@@ -1105,7 +1089,7 @@ namespace uHateoas.League
 
             return entities;
         }
-       
+
         private IEnumerable<IPublishedContent> SortedData(IEnumerable<IPublishedContent> data)
         {
             IEnumerable<IPublishedContent> sortedData;
@@ -1229,7 +1213,7 @@ namespace uHateoas.League
                     if (property != null && property.ToString().Contains(","))
                     {
                         property = string.Join(",",
-                            property.ToString().Split(',').Select(subKey => UmbHelper.TypedMedia(subKey).Url)
+                            property.ToString().Split(',').Select(subKey => _umbracoHelper.TypedMedia(subKey).Url)
                                 .ToArray());
                     }
                     else if (property is IEnumerable<IPublishedContent> &&
@@ -1402,9 +1386,9 @@ namespace uHateoas.League
 
         private bool HasAccess(IPublishedContent node)
         {
-            if (UmbHelper.IsProtected(node.Path))
+            if (_umbracoHelper.IsProtected(node.Path))
             {
-                return UmbHelper.MemberHasAccess(node.Path);
+                return _umbracoHelper.MemberHasAccess(node.Path);
             }
 
             return true;
@@ -1637,7 +1621,7 @@ namespace uHateoas.League
                             {
                                 int nodeId = (Int32)properties[key];
                                 if (nodeId != CurrentPageId && key != "Path")
-                                    properties[key] = Simplify(UmbHelper.TypedContent(nodeId));
+                                    properties[key] = Simplify(_umbracoHelper.TypedContent(nodeId));
                             }
                             else if ((dynamic)properties[key].GetType() == typeof(string))
                             {
@@ -1646,7 +1630,7 @@ namespace uHateoas.League
                                 {
                                     int nodeId = Parse(node);
                                     if (nodeId != CurrentPageId && key != "Path")
-                                        content.Add(Simplify(UmbHelper.TypedContent(nodeId)));
+                                        content.Add(Simplify(_umbracoHelper.TypedContent(nodeId)));
                                 }
                                 properties[key] = content;
                             }
