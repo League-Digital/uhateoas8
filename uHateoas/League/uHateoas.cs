@@ -1,29 +1,18 @@
 ﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.Serialization;
-using System.Text.RegularExpressions;
 using System.Web;
-using System.Web.Mvc;
-using System.Web.Security;
-using System.Xml;
-using Umbraco.Core;
-using Umbraco.Core.Cache;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
 using Umbraco.Core.Models.Membership;
 using Umbraco.Core.Models.PublishedContent;
 using Umbraco.Core.Services;
 using Umbraco.Web;
-using static System.Int32;
-using Formatting = Newtonsoft.Json.Formatting;
-using TimeSpan = System.TimeSpan;
 
 namespace uHateoas.League
 {
@@ -147,9 +136,9 @@ namespace uHateoas.League
 
                 if (cacheData.Length == 3)
                 {
-                    CacheHours = TryParse(cacheData[0], out int cacheHours) ? cacheHours : 24 * 7;
-                    CacheMinutes = TryParse(cacheData[1], out int cacheMinutes) ? cacheMinutes : 0;
-                    CacheSeconds = TryParse(cacheData[2], out int cacheSeconds) ? cacheSeconds : 0;
+                    CacheHours = System.Int32.TryParse(cacheData[0], out int cacheHours) ? cacheHours : 24 * 7;
+                    CacheMinutes = System.Int32.TryParse(cacheData[1], out int cacheMinutes) ? cacheMinutes : 0;
+                    CacheSeconds = System.Int32.TryParse(cacheData[2], out int cacheSeconds) ? cacheSeconds : 0;
                 }
                 if (IsDebug)
                     Logger.Info(GetType(), "uHateoas: Caching is set up  (duration is currently " + CacheHours + ":" + CacheMinutes + ":" + CacheSeconds + ")");
@@ -1292,7 +1281,7 @@ namespace uHateoas.League
             switch (guessType)
             {
                 case "number":
-                    return Parse(val.ToString());
+                    return System.Int32.Parse(val.ToString());
 
                 case "checkbox":
                     return val.ToString() == "True";
@@ -1328,7 +1317,7 @@ namespace uHateoas.League
                 if (val.ToString().Contains("-") && val.ToString().Contains("T") && val.ToString().Contains(":"))
                     return "date";
 
-                if (val.ToString().IsNumeric() && TryParse(val.ToString(), out _))
+                if (val.ToString().IsNumeric() && System.Int32.TryParse(val.ToString(), out _))
                     return "number";
             }
 
