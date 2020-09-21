@@ -207,17 +207,17 @@ namespace uHateoas.League
                 }), xmlRoot).OuterXml);
         }
 
-        public Dictionary<string, object> Process(dynamic currentPage)
-        {
-            CurrentPageId = currentPage.Id;
-            return Process(_umbracoHelper.TypedContent(CurrentPageId));
-        }
+        //public Dictionary<string, object> Process(dynamic currentPage)
+        //{
+        //    CurrentPageId = currentPage.Id;
+        //    return Process(_umbracoHelper.TypedContent(CurrentPageId));
+        //}
 
-        public Dictionary<string, object> Process(RenderModel model, bool simple = false)
-        {
-            CurrentPageId = model.Content.Id;
-            return Process(model.Content, simple);
-        }
+        //public Dictionary<string, object> Process(RenderModel model, bool simple = false)
+        //{
+        //    CurrentPageId = model.Content.Id;
+        //    return Process(model.Content, simple);
+        //}
 
         //Process Overrides
         public HtmlString Process()
@@ -243,7 +243,7 @@ namespace uHateoas.League
             MainModel = model;
             CurrentPageId = model.Id;
             SimpleJson = simple;
-            FormsAuthenticationTicket ticket = new HttpContextWrapper(HttpContext.Current).GetUmbracoAuthTicket();
+            FormsAuthenticationTicket ticket = new HttpContextWrapper(HttpContext.Current).GetOwinContext().GetUmbracoAuthTicket();
             try
             {
                 if (ticket != null && ticket.Expired != true)
@@ -251,11 +251,11 @@ namespace uHateoas.League
                     string userName = ticket.Name;
                     if (userName != null)
                     {
-                        CurrentUser = ApplicationContext.Current.Services.UserService.GetByUsername(userName);
+                        CurrentUser = Umbraco.Core.Composing.Current.Services.UserService.GetByUsername(userName);
                         if (CurrentUser != null && CurrentUser.Groups.Any(x => x.Alias == "admin"))
                         {
-                            ContentTypeService = ApplicationContext.Current.Services.ContentTypeService;
-                            DataTypeService = ApplicationContext.Current.Services.DataTypeService;
+                            ContentTypeService = Umbraco.Core.Composing.Current.Services.ContentTypeService;
+                            DataTypeService = Umbraco.Core.Composing.Current.Services.DataTypeService;
                             IContentType currentContentType = ContentTypeService.GetContentType(model.ContentType.Id);
                             if (currentContentType != null)
                             {
@@ -281,7 +281,7 @@ namespace uHateoas.League
                     else if (UExtensions.SkipDomainCheck() || !string.IsNullOrEmpty(RequestNoCache))
                     {
                         if (IsDebug)
-                            LogHelper.Info(GetType(), "uHateoas: Skipping caching - SkipDomainCheck: " + UExtensions.SkipDomainCheck() + " RequestNoCache: " + RequestNoCache);
+                            Logger.Info(GetType(), "uHateoas: Skipping caching - SkipDomainCheck: " + UExtensions.SkipDomainCheck() + " RequestNoCache: " + RequestNoCache);
                         Data = ProcessRequest(model);
                     }
                     else
@@ -290,9 +290,9 @@ namespace uHateoas.League
                                         UExtensions.GetHashString(Context.Request.Url.PathAndQuery.ToLower());
 
                         if (IsDebug)
-                            LogHelper.Info(GetType(), "uHateoas: Looking for " + cacheName + " in cache (duration is currently " + CacheHours + ":" + CacheMinutes + ")");
+                            Logger.Info(GetType(), "uHateoas: Looking for " + cacheName + " in cache (duration is currently " + CacheHours + ":" + CacheMinutes + ")");
 
-                        Data = ApplicationContext.Current.ApplicationCache.RuntimeCache
+                        Data = Umbraco.Core.Composing.Current.AppCaches.RuntimeCache
                             .GetCacheItem<Dictionary<string, object>>(cacheName, () => ProcessRequest(model),
                                 new TimeSpan(CacheHours, CacheMinutes, CacheSeconds));
                     }
@@ -314,7 +314,7 @@ namespace uHateoas.League
         private Dictionary<string, object> ProcessRequest(IPublishedContent model)
         {
             if (IsDebug)
-                LogHelper.Info(GetType(), "uHateoas: Item was not found in cache " + model.Id + " - " + model.Name);
+                Logger.Info(GetType(), "uHateoas: Item was not found in cache " + model.Id + " - " + model.Name);
 
             Entities = new List<object>();
             Actions = new List<object>();
@@ -554,7 +554,7 @@ namespace uHateoas.League
                 string action = Context.Request.HttpMethod.ToUpper();
                 bool delete = Context.Request.QueryString["delete"] != null && string.Equals(Context.Request.QueryString["delete"], "true", StringComparison.OrdinalIgnoreCase);
                 bool publish = Context.Request.QueryString["publish"] != null && string.Equals(Context.Request.QueryString["publish"], "true", StringComparison.OrdinalIgnoreCase);
-                ContentService = ApplicationContext.Current.Services.ContentService;
+                ContentService = Umbraco.Core.Composing.Current.Services.ContentService;
 
                 switch (action)
                 {
@@ -650,7 +650,7 @@ namespace uHateoas.League
                     }
                     catch (Exception ex)
                     {
-                        LogHelper.Debug<UHateoas>("Node property error: \"{0}\"", () => ex.Message);
+                        Logger.Debug<UHateoas>("Node property error: \"{0}\"", () => ex.Message);
                     }
                 }
 
@@ -705,7 +705,7 @@ namespace uHateoas.League
                     }
                     catch (Exception ex)
                     {
-                        LogHelper.Debug<UHateoas>("New node property error: \"{0}\"", () => ex.Message);
+                        Logger.Debug<UHateoas>("New node property error: \"{0}\"", ex.Message);
                     }
                 }
 
