@@ -7,14 +7,17 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Web;
+using System.Web.Security;
+using Umbraco.Core.Cache;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
 using Umbraco.Core.Models.Membership;
 using Umbraco.Core.Models.PublishedContent;
 using Umbraco.Core.Services;
 using Umbraco.Web;
+using Umbraco.Web.Security;
 
-namespace uHateoas.League
+namespace uHateoas
 {
 
     [Serializable]
@@ -76,14 +79,14 @@ namespace uHateoas.League
             Initialise();
         }
 
-        //public UHateoas(IPublishedContent currentPage, bool simple = false)
-        //{
-        //    Initialise();
-        //    foreach (var item in Process(currentPage, simple))
-        //    {
-        //        Add(item.Key, item.Value);
-        //    }
-        //}
+        public UHateoas(IPublishedContent currentPage, bool simple = false)
+        {
+            Initialise();
+            foreach (var item in Process(currentPage, simple))
+            {
+                Add(item.Key, item.Value);
+            }
+        }
 
         private void Initialise()
         {
@@ -202,11 +205,7 @@ namespace uHateoas.League
         //    return Process(_umbracoHelper.TypedContent(CurrentPageId));
         //}
 
-        //public Dictionary<string, object> Process(RenderModel model, bool simple = false)
-        //{
-        //    CurrentPageId = model.Content.Id;
-        //    return Process(model.Content, simple);
-        //}
+
 
         //Process Overrides
         public HtmlString Process()
@@ -227,646 +226,645 @@ namespace uHateoas.League
         }
 
         //Process Current Model
-        //public Dictionary<string, object> Process(IPublishedContent model, bool simple = false)
-        //{
-        //    MainModel = model;
-        //    CurrentPageId = model.Id;
-        //    SimpleJson = simple;
-        //    FormsAuthenticationTicket ticket = new HttpContextWrapper(HttpContext.Current).GetOwinContext().GetUmbracoAuthTicket();
-        //    try
-        //    {
-        //        if (ticket != null && ticket.Expired != true)
-        //        {
-        //            string userName = ticket.Name;
-        //            if (userName != null)
-        //            {
-        //                CurrentUser = Umbraco.Core.Composing.Current.Services.UserService.GetByUsername(userName);
-        //                if (CurrentUser != null && CurrentUser.Groups.Any(x => x.Alias == "admin"))
-        //                {
-        //                    ContentTypeService = Umbraco.Core.Composing.Current.Services.ContentTypeService;
-        //                    DataTypeService = Umbraco.Core.Composing.Current.Services.DataTypeService;
-        //                    IContentType currentContentType = ContentTypeService.GetContentType(model.ContentType.Id);
-        //                    if (currentContentType != null)
-        //                    {
-        //                        CanUpdate = true;
-        //                        CanDelete = true;
-        //                        if (currentContentType.AllowedContentTypes.Any())
-        //                            CanCreate = true;
-        //                    }
-        //                }
-        //            }
-        //        }
+        public Dictionary<string, object> Process(IPublishedContent model, bool simple = false)
+        {
+            MainModel = model;
+            CurrentPageId = model.Id;
+            SimpleJson = simple;
+            var isLoggedIn = new HttpContextWrapper(HttpContext.Current).GetOwinContext().GetUmbracoAuthTicket();
+            try
+            {
+                if (isLoggedIn != null && isLoggedIn.Properties.ExpiresUtc.GetValueOrDefault() > DateTime.Now)
+                {
+                    string userName = isLoggedIn.Identity.Name;
+                    if (userName != null)
+                    {
+                        var services = Umbraco.Core.Composing.Current.Services;
+                        CurrentUser = services.UserService.GetByUsername(userName);
+                        if (CurrentUser != null && CurrentUser.Groups.Any(x => x.Alias == "admin"))
+                        {
+                            int[] aliases = { model.ContentType.Id };
+                            var currentContentType = services.ContentTypeService.GetAll(aliases).FirstOrDefault();
+                            if (currentContentType != null)
+                            {
+                                CanUpdate = true;
+                                CanDelete = true;
+                                if (currentContentType.AllowedContentTypes.Any())
+                                    CanCreate = true;
+                            }
+                        }
+                    }
+                }
 
-        //        if (string.Equals(Context.Request.HttpMethod, "OPTIONS", StringComparison.OrdinalIgnoreCase))
-        //        {
-        //            Data = new Dictionary<string, object>();
-        //        }
-        //        else if (string.Equals(Context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
-        //        {
-        //            if (!string.IsNullOrEmpty(RequestAction) && !string.IsNullOrEmpty(RequestDocType))
-        //            {
-        //                Data = BuildForm(model, RequestDocType);
-        //            }
-        //            else if (UExtensions.SkipDomainCheck() || !string.IsNullOrEmpty(RequestNoCache))
-        //            {
-        //                if (IsDebug)
-        //                    Logger.Info(GetType(), "uHateoas: Skipping caching - SkipDomainCheck: " + UExtensions.SkipDomainCheck() + " RequestNoCache: " + RequestNoCache);
-        //                Data = ProcessRequest(model);
-        //            }
-        //            else
-        //            {
-        //                var cacheName = UExtensions.CachePrefix + model.ContentType.Alias + "-" +
-        //                                UExtensions.GetHashString(Context.Request.Url.PathAndQuery.ToLower());
+                if (string.Equals(Context.Request.HttpMethod, "OPTIONS", StringComparison.OrdinalIgnoreCase))
+                {
+                    Data = new Dictionary<string, object>();
+                }
+                else if (string.Equals(Context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.IsNullOrEmpty(RequestAction) && !string.IsNullOrEmpty(RequestDocType))
+                    {
+                        Data = BuildForm(model, RequestDocType);
+                    }
+                    else if (UExtensions.SkipDomainCheck() || !string.IsNullOrEmpty(RequestNoCache))
+                    {
+                        if (IsDebug)
+                            Logger.Info(GetType(), "uHateoas: Skipping caching - SkipDomainCheck: " + UExtensions.SkipDomainCheck() + " RequestNoCache: " + RequestNoCache);
+                        Data = ProcessRequest(model);
+                    }
+                    else
+                    {
+                        var cacheName = UExtensions.CachePrefix + model.ContentType.Alias + "-" +
+                                        UExtensions.GetHashString(Context.Request.Url.PathAndQuery.ToLower());
 
-        //                if (IsDebug)
-        //                    Logger.Info(GetType(), "uHateoas: Looking for " + cacheName + " in cache (duration is currently " + CacheHours + ":" + CacheMinutes + ")");
+                        if (IsDebug)
+                            Logger.Info(GetType(), "uHateoas: Looking for " + cacheName + " in cache (duration is currently " + CacheHours + ":" + CacheMinutes + ")");
 
-        //                Data = Umbraco.Core.Composing.Current.AppCaches.RuntimeCache
-        //                    .GetCacheItem<Dictionary<string, object>>(cacheName, () => ProcessRequest(model),
-        //                        new TimeSpan(CacheHours, CacheMinutes, CacheSeconds));
-        //            }
-        //        }
-        //        else
-        //        {
-        //            Data = ProcessForm(model);
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        throw new Exception("Process Error " + ex.Message);
-        //    }
-
-        //    return Data;
-        //}
+                        Data = Umbraco.Core.Composing.Current.AppCaches.RuntimeCache
+                            .GetCacheItem<Dictionary<string, object>>(cacheName, () => ProcessRequest(model),
+                                new TimeSpan(CacheHours, CacheMinutes, CacheSeconds));
+                    }
+                }
+                else
+                {
+                    Data = ProcessForm(model);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Process Error " + ex.Message);
+            }
+            return Data;
+        }
 
         //Process Helper Methods
-        //private Dictionary<string, object> ProcessRequest(IPublishedContent model)
-        //{
-        //    if (IsDebug)
-        //        Logger.Info(GetType(), "uHateoas: Item was not found in cache " + model.Id + " - " + model.Name);
+        private Dictionary<string, object> ProcessRequest(IPublishedContent model)
+        {
+            if (IsDebug)
+                Logger.Info(GetType(), "uHateoas: Item was not found in cache " + model.Id + " - " + model.Name);
 
-        //    Entities = new List<object>();
-        //    Actions = new List<object>();
-        //    try
-        //    {
-        //        EncodeHtml = false;
-        //        if (!string.IsNullOrEmpty(RequestCurrentModel))
-        //        {
-        //            model = _umbracoHelper.TypedContent(RequestCurrentModel);
-        //        }
-        //        if (!string.IsNullOrEmpty(RequestEncodeHtml))
-        //        {
-        //            EncodeHtml = RequestEncodeHtml.AsBoolean();
-        //        }
-        //        if (!string.IsNullOrEmpty(RequestAncestor))
-        //        {
-        //            var ancestor = model.AncestorOrSelf(RequestAncestor);
-        //            return Simplify(ancestor);
-        //        }
+            Entities = new List<object>();
+            Actions = new List<object>();
+            try
+            {
+                EncodeHtml = false;
+                if (!string.IsNullOrEmpty(RequestCurrentModel))
+                {
+                    model = _umbracoHelper.Content(RequestCurrentModel);
+                }
+                if (!string.IsNullOrEmpty(RequestEncodeHtml))
+                {
+                    EncodeHtml = RequestEncodeHtml.AsBoolean();
+                }
+                if (!string.IsNullOrEmpty(RequestAncestor))
+                {
+                    var ancestor = model.AncestorOrSelf(RequestAncestor);
+                    return Simplify(ancestor);
+                }
 
-        //        Entities.AddRange(GetDescendantEntities(model));
-        //        Entities.AddRange(GetChildrenEntities(model));
-        //        if (!SimpleJson && (CanCreate || CanUpdate || CanDelete))
-        //            Actions.AddRange(GetChildrenActions(model));
+                Entities.AddRange(GetDescendantEntities(model));
+                Entities.AddRange(GetChildrenEntities(model));
+                if (!SimpleJson && (CanCreate || CanUpdate || CanDelete))
+                    Actions.AddRange(GetChildrenActions(model));
 
-        //        return Simplify(model, true, Entities, Actions);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        throw new Exception("ProcessRequest Error " + ex.Message);
-        //    }
-        //}
+                return Simplify(model, true, Entities, Actions);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("ProcessRequest Error " + ex.Message);
+            }
+        }
 
-        //private Dictionary<string, object> Simplify(IPublishedContent node, bool showClass = true)
-        //{
-        //    return Simplify(node, false, new List<object>(), new List<object>(), showClass);
-        //}
+        private Dictionary<string, object> Simplify(IPublishedContent node, bool showClass = true)
+        {
+            return Simplify(node, false, new List<object>(), new List<object>(), showClass);
+        }
 
-        //private Dictionary<string, object> Simplify(IPublishedContent node, bool isRoot, List<object> entities, List<object> actions, bool showClass = true)
-        //{
-        //    try
-        //    {
-        //        if (!HasAccess(node))
-        //            throw new Exception("Access Denied");
+        private Dictionary<string, object> Simplify(IPublishedContent node, bool isRoot, List<object> entities, List<object> actions, bool showClass = true)
+        {
+            try
+            {
+                //if (!HasAccess(node))
+                //    throw new Exception("Access Denied");
 
-        //        Dictionary<string, object> returnProperties = new Dictionary<string, object>();
-        //        SortedDictionary<string, object> properties = new SortedDictionary<string, object>();
-        //        PropertyInfo[] props = typeof(IPublishedContent).GetProperties();
-        //        List<object> links = new List<object>();
+                Dictionary<string, object> returnProperties = new Dictionary<string, object>();
+                //SortedDictionary<string, object> properties = new SortedDictionary<string, object>();
+                //PropertyInfo[] props = typeof(IPublishedContent).GetProperties();
+                //List<object> links = new List<object>();
 
-        //        foreach (PropertyInfo pi in props.OrderBy(p => p.Name))
-        //        {
-        //            switch (pi.Name)
-        //            {
-        //                case "ContentSet":
-        //                case "ContentType":
-        //                case "PropertiesAsList":
-        //                case "ChildrenAsList":
-        //                case "Properties":
-        //                case "Item":
-        //                case "Version":
-        //                    break;
+                //foreach (PropertyInfo pi in props.OrderBy(p => p.Name))
+                //{
+                //    switch (pi.Name)
+                //    {
+                //        case "ContentSet":
+                //        case "ContentType":
+                //        case "PropertiesAsList":
+                //        case "ChildrenAsList":
+                //        case "Properties":
+                //        case "Item":
+                //        case "Version":
+                //            break;
 
-        //                case "Parent":
-        //                    if (node.Parent != null)
-        //                        if (HasAccess(node.Parent))
-        //                        {
-        //                            links.Add(new
-        //                            {
-        //                                rel = new[] {
-        //                                    "_Parent", node.Parent.DocumentTypeAlias
-        //                                },
-        //                                title = node.Parent.Name,
-        //                                href = GetHateoasHref(node.Parent, null)
-        //                            });
-        //                        }
+                //        case "Parent":
+                //            if (node.Parent != null)
+                //                if (HasAccess(node.Parent))
+                //                {
+                //                    links.Add(new
+                //                    {
+                //                        rel = new[] {
+                //                            "_Parent", node.Parent.DocumentTypeAlias
+                //                        },
+                //                        title = node.Parent.Name,
+                //                        href = GetHateoasHref(node.Parent, null)
+                //                    });
+                //                }
 
-        //                    break;
+                //            break;
 
-        //                case "Url":
-        //                    links.Add(new
-        //                    {
-        //                        rel = new[] { "_Self", node.DocumentTypeAlias },
-        //                        title = node.Name,
-        //                        href = GetHateoasHref(node, null)
-        //                    });
-        //                    properties.Add(pi.Name, node.Url);
-        //                    break;
+                //        case "Url":
+                //            links.Add(new
+                //            {
+                //                rel = new[] { "_Self", node.DocumentTypeAlias },
+                //                title = node.Name,
+                //                href = GetHateoasHref(node, null)
+                //            });
+                //            properties.Add(pi.Name, node.Url);
+                //            break;
 
-        //                case "Children":
-        //                case "GetChildrenAsList":
-        //                    foreach (var child in node.Children.ToList())
-        //                    {
-        //                        if (HasAccess(child))
-        //                        {
-        //                            links.Add(new
-        //                            {
-        //                                rel = new[]
-        //                               {
-        //                                    "_Child", child.DocumentTypeAlias
-        //                                },
-        //                                title = child.Name,
-        //                                href = GetHateoasHref(child, null)
-        //                            });
-        //                        }
-        //                    }
-        //                    break;
+                //        case "Children":
+                //        case "GetChildrenAsList":
+                //            foreach (var child in node.Children.ToList())
+                //            {
+                //                if (HasAccess(child))
+                //                {
+                //                    links.Add(new
+                //                    {
+                //                        rel = new[]
+                //                       {
+                //                            "_Child", child.DocumentTypeAlias
+                //                        },
+                //                        title = child.Name,
+                //                        href = GetHateoasHref(child, null)
+                //                    });
+                //                }
+                //            }
+                //            break;
 
-        //                case "DocumentTypeAlias":
-        //                case "NodeTypeAlias":
-        //                    var classes = new SortedSet<string>();
-        //                    classes.Add(node.DocumentTypeAlias);
-        //                    if (!string.IsNullOrEmpty(RequestDescendants) && isRoot)
-        //                    {
-        //                        classes.Add("Descendants");
-        //                    }
-        //                    if (!string.IsNullOrEmpty(RequestChildren) && isRoot)
-        //                    {
-        //                        classes.Add("Children");
-        //                    }
-        //                    if (showClass)
-        //                    {
-        //                        if (SimpleJson)
-        //                            returnProperties.Add("class", string.Join(",", classes.ToArray()));
-        //                        else
-        //                            returnProperties.Add("class", classes.ToArray());
+                //        case "DocumentTypeAlias":
+                //        case "NodeTypeAlias":
+                //            var classes = new SortedSet<string>();
+                //            classes.Add(node.DocumentTypeAlias);
+                //            if (!string.IsNullOrEmpty(RequestDescendants) && isRoot)
+                //            {
+                //                classes.Add("Descendants");
+                //            }
+                //            if (!string.IsNullOrEmpty(RequestChildren) && isRoot)
+                //            {
+                //                classes.Add("Children");
+                //            }
+                //            if (showClass)
+                //            {
+                //                if (SimpleJson)
+                //                    returnProperties.Add("class", string.Join(",", classes.ToArray()));
+                //                else
+                //                    returnProperties.Add("class", classes.ToArray());
 
-        //                        returnProperties.Add("title", node.Name);
-        //                    }
-        //                    //goto default;
-        //                    var prop = SimplyfyProperty(pi, node);
-        //                    properties.Add(prop.Key, prop.Value);
-        //                    break;
+                //                returnProperties.Add("title", node.Name);
+                //            }
+                //            //goto default;
+                //            var prop = SimplyfyProperty(pi, node);
+                //            properties.Add(prop.Key, prop.Value);
+                //            break;
 
-        //                default:
-        //                    var prop1 = SimplyfyProperty(pi, node);
-        //                    properties.Add(prop1.Key, prop1.Value);
-        //                    break;
+                //        default:
+                //            var prop1 = SimplyfyProperty(pi, node);
+                //            properties.Add(prop1.Key, prop1.Value);
+                //            break;
 
-        //            }
-        //        }
+                //    }
+                //}
 
-        //        var useAllProperties = false;
-        //        var propertyNames = new List<string>();
-        //        if (!string.IsNullOrEmpty(RequestSelect))
-        //        {
-        //            propertyNames = RequestSelect.ToLower().Split(',').ToList();
-        //        }
+                //var useAllProperties = false;
+                //var propertyNames = new List<string>();
+                //if (!string.IsNullOrEmpty(RequestSelect))
+                //{
+                //    propertyNames = RequestSelect.ToLower().Split(',').ToList();
+                //}
 
-        //        else
-        //            useAllProperties = true;
+                //else
+                //    useAllProperties = true;
 
-        //        foreach (IPublishedProperty pal in node.Properties)
-        //        {
-        //            if (pal != null)
-        //            {
-        //                if (useAllProperties || propertyNames.Contains(pal.Alias.ToLower()))
-        //                {
-        //                    var prop = SimplyfyProperty(pal, node);
-        //                    properties.Add(prop.Key, prop.Value);
-        //                }
-        //            }
-        //        }
+                //foreach (IPublishedProperty pal in node.Properties)
+                //{
+                //    if (pal != null)
+                //    {
+                //        if (useAllProperties || propertyNames.Contains(pal.Alias.ToLower()))
+                //        {
+                //            var prop = SimplyfyProperty(pal, node);
+                //            properties.Add(prop.Key, prop.Value);
+                //        }
+                //    }
+                //}
 
-        //        if (propertyNames.Any())
-        //        {
-        //            var properties1 = properties;
-        //            var selectedProperties = new SortedDictionary<string, object>();
+                //if (propertyNames.Any())
+                //{
+                //    var properties1 = properties;
+                //    var selectedProperties = new SortedDictionary<string, object>();
 
-        //            foreach (var a in properties.Where(p => propertyNames.Contains(p.Key.ToLower())))
-        //            {
-        //                selectedProperties.Add(a.Key, properties1[a.Key]);
-        //            }
+                //    foreach (var a in properties.Where(p => propertyNames.Contains(p.Key.ToLower())))
+                //    {
+                //        selectedProperties.Add(a.Key, properties1[a.Key]);
+                //    }
 
-        //            properties = selectedProperties;
-        //        }
+                //    properties = selectedProperties;
+                //}
 
-        //        ResolveContent(properties);
+                //ResolveContent(properties);
 
-        //        returnProperties.Add("properties", properties);
+                //returnProperties.Add("properties", properties);
 
-        //        if (entities.Any())
-        //        {
-        //            returnProperties.Add("entities", entities);
-        //        }
+                //if (entities.Any())
+                //{
+                //    returnProperties.Add("entities", entities);
+                //}
 
-        //        if (!SimpleJson)
-        //        {
-        //            if (actions.Any())
-        //            {
-        //                returnProperties.Add("actions", actions);
-        //            }
+                //if (!SimpleJson)
+                //{
+                //    if (actions.Any())
+                //    {
+                //        returnProperties.Add("actions", actions);
+                //    }
 
-        //            if (links.Any())
-        //            {
-        //                returnProperties.Add("links", links);
-        //            }
-        //        }
+                //    if (links.Any())
+                //    {
+                //        returnProperties.Add("links", links);
+                //    }
+                //}
 
-        //        return returnProperties;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        throw new Exception("Simplify Error " + ex.Message);
-        //    }
-        //}
+                return returnProperties;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Simplify Error " + ex.Message);
+            }
+        }
 
-        //private Dictionary<string, object> BuildForm(IPublishedContent model, string docTypeAlias)
-        //{
-        //    Actions = new List<object>();
-        //    try
-        //    {
-        //        EncodeHtml = false;
-        //        if (CanCreate || CanUpdate || CanDelete)
-        //            Actions.AddRange(GetChildrenActions(model));
-        //        else
-        //            return ProcessRequest(model);
-        //        Dictionary<string, object> simpleNode = GenerateForm(model, docTypeAlias);
-        //        if (Actions.Any())
-        //        {
-        //            simpleNode.Add("actions", Actions);
-        //        }
-        //        return simpleNode;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        throw new Exception("BuildForm Error " + ex.Message);
-        //    }
-        //}
+        private Dictionary<string, object> BuildForm(IPublishedContent model, string docTypeAlias)
+        {
+            Actions = new List<object>();
+            try
+            {
+                //EncodeHtml = false;
+                //if (CanCreate || CanUpdate || CanDelete)
+                //    Actions.AddRange(GetChildrenActions(model));
+                //else
+                //    return ProcessRequest(model);
+                Dictionary<string, object> simpleNode = GenerateForm(model, docTypeAlias);
+                //if (Actions.Any())
+                //{
+                //    simpleNode.Add("actions", Actions);
+                //}
+                return simpleNode;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("BuildForm Error " + ex.Message);
+            }
+        }
 
-        //private Dictionary<string, object> ProcessForm(IPublishedContent model)
-        //{
-        //    Dictionary<string, object> node;
-        //    try
-        //    {
-        //        string doctype = Context.Request.QueryString["doctype"] ?? "";
-        //        string action = Context.Request.HttpMethod.ToUpper();
-        //        bool delete = Context.Request.QueryString["delete"] != null && string.Equals(Context.Request.QueryString["delete"], "true", StringComparison.OrdinalIgnoreCase);
-        //        bool publish = Context.Request.QueryString["publish"] != null && string.Equals(Context.Request.QueryString["publish"], "true", StringComparison.OrdinalIgnoreCase);
-        //        ContentService = Umbraco.Core.Composing.Current.Services.ContentService;
+        private Dictionary<string, object> ProcessForm(IPublishedContent model)
+        {
+            Dictionary<string, object> node;
+            try
+            {
+                string doctype = Context.Request.QueryString["doctype"] ?? "";
+                string action = Context.Request.HttpMethod.ToUpper();
+                bool delete = Context.Request.QueryString["delete"] != null && string.Equals(Context.Request.QueryString["delete"], "true", StringComparison.OrdinalIgnoreCase);
+                bool publish = Context.Request.QueryString["publish"] != null && string.Equals(Context.Request.QueryString["publish"], "true", StringComparison.OrdinalIgnoreCase);
+                ContentService = Umbraco.Core.Composing.Current.Services.ContentService;
 
-        //        switch (action)
-        //        {
-        //            case "POST":
-        //                if (!CanCreate)
-        //                    throw new Exception(action + " Access Denied");
-        //                if (Context.Request.QueryString["doctype"] == null)
-        //                    throw new Exception("No doctype supplied\r\n" + Context.Request.GetDetails());
-        //                node = ProcessRequest(CreateNode(model, doctype, publish));
-        //                break;
+                switch (action)
+                {
+                    case "POST":
+                        if (!CanCreate)
+                            throw new Exception(action + " Access Denied");
+                        if (Context.Request.QueryString["doctype"] == null)
+                            throw new Exception("No doctype supplied\r\n" + Context.Request.GetDetails());
+                        node = ProcessRequest(CreateNode(model, doctype, publish));
+                        break;
 
-        //            case "PUT":
-        //                if (!CanUpdate)
-        //                    throw new Exception(action + " Access Denied");
-        //                node = ProcessRequest(UpdateNode(model, publish));
-        //                break;
+                    case "PUT":
+                        if (!CanUpdate)
+                            throw new Exception(action + " Access Denied");
+                        node = ProcessRequest(UpdateNode(model, publish));
+                        break;
 
-        //            case "PATCH":
-        //                if (!CanUpdate)
-        //                    throw new Exception(action + " Access Denied");
-        //                node = ProcessRequest(UpdateNode(model, publish));
-        //                break;
+                    case "PATCH":
+                        if (!CanUpdate)
+                            throw new Exception(action + " Access Denied");
+                        node = ProcessRequest(UpdateNode(model, publish));
+                        break;
 
-        //            case "DELETE":
-        //                if (!CanDelete)
-        //                    throw new Exception(action + " Access Denied");
-        //                node = ProcessRequest(RemoveNode(model, delete));
-        //                break;
+                    case "DELETE":
+                        if (!CanDelete)
+                            throw new Exception(action + " Access Denied");
+                        node = ProcessRequest(RemoveNode(model, delete));
+                        break;
 
-        //            case "OPTIONS":
-        //                node = null;
-        //                break;
+                    case "OPTIONS":
+                        node = null;
+                        break;
 
-        //            default:
-        //                throw new Exception(action + " is an invalid action");
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        throw new Exception("Process Form Error " + ex.Message);
-        //    }
-        //    return node;
-        //}
+                    default:
+                        throw new Exception(action + " is an invalid action");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Process Form Error " + ex.Message);
+            }
+            return node;
+        }
 
-        //private IPublishedContent RemoveNode(IPublishedContent model, bool delete)
-        //{
-        //    IPublishedContent node;
-        //    try
-        //    {
-        //        IContent deleteNode = ContentService.GetById(model.Id);
-        //        if (deleteNode == null)
-        //            throw new Exception("Node is null");
-        //        if (delete)
-        //            ContentService.Delete(deleteNode, CurrentUser.Id);
-        //        else
-        //            ContentService.UnPublish(deleteNode, CurrentUser.Id);
-        //        node = _umbracoHelper.TypedContent(deleteNode.ParentId);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        throw new Exception("RemoveNode Error " + ex.Message);
-        //    }
-        //    return node;
-        //}
+        private IPublishedContent RemoveNode(IPublishedContent model, bool delete)
+        {
+            IPublishedContent node = model;
+            try
+            {
+                //IContent deleteNode = ContentService.GetById(model.Id);
+                //if (deleteNode == null)
+                //    throw new Exception("Node is null");
+                //if (delete)
+                //    ContentService.Delete(deleteNode, CurrentUser.Id);
+                //else
+                //    ContentService.UnPublish(deleteNode, CurrentUser.Id);
+                //node = _umbracoHelper.TypedContent(deleteNode.ParentId);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("RemoveNode Error " + ex.Message);
+            }
+            return node;
+        }
 
-        //private IPublishedContent UpdateNode(IPublishedContent model, bool publish)
-        //{
-        //    IPublishedContent node;
-        //    try
-        //    {
-        //        IContent updateNode = ContentService.GetById(model.Id);
-        //        if (updateNode == null)
-        //            throw new Exception("Node is null");
+        private IPublishedContent UpdateNode(IPublishedContent model, bool publish)
+        {
+            IPublishedContent node = model;
+            try
+            {
+                //    IContent updateNode = ContentService.GetById(model.Id);
+                //    if (updateNode == null)
+                //        throw new Exception("Node is null");
 
-        //        string json = GetPostedJson();
-        //        Dictionary<string, object> form = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
-        //        if (form.ContainsKey("Name"))
-        //            updateNode.Name = form["Name"].ToString();
+                //    string json = GetPostedJson();
+                //    Dictionary<string, object> form = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
+                //    if (form.ContainsKey("Name"))
+                //        updateNode.Name = form["Name"].ToString();
 
-        //        if (form.ContainsKey("ExpireDate"))
-        //            updateNode.ExpireDate = (DateTime)form["ExpireDate"];
+                //    if (form.ContainsKey("ExpireDate"))
+                //        updateNode.ExpireDate = (DateTime)form["ExpireDate"];
 
-        //        if (form.ContainsKey("ReleaseDate"))
-        //            updateNode.ReleaseDate = (DateTime)form["ReleaseDate"];
+                //    if (form.ContainsKey("ReleaseDate"))
+                //        updateNode.ReleaseDate = (DateTime)form["ReleaseDate"];
 
-        //        foreach (Property prop in updateNode.Properties)
-        //        {
-        //            try
-        //            {
-        //                KeyValuePair<string, object> kvp = GetValuePair(prop.Alias, form, updateNode);
-        //                if (kvp.Value != null)
-        //                    updateNode.SetValue(kvp.Key, kvp.Value);
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                Logger.Debug<UHateoas>("Node property error: \"{0}\"", () => ex.Message);
-        //            }
-        //        }
+                //    foreach (Property prop in updateNode.Properties)
+                //    {
+                //        try
+                //        {
+                //            KeyValuePair<string, object> kvp = GetValuePair(prop.Alias, form, updateNode);
+                //            if (kvp.Value != null)
+                //                updateNode.SetValue(kvp.Key, kvp.Value);
+                //        }
+                //        catch (Exception ex)
+                //        {
+                //            Logger.Debug<UHateoas>("Node property error: \"{0}\"", () => ex.Message);
+                //        }
+                //    }
 
-        //        if (publish)
-        //        {
-        //            Attempt<PublishStatus> result = ContentService.SaveAndPublishWithStatus(updateNode, CurrentUser.Id);
-        //            node = _umbracoHelper.TypedContent(result.Result.ContentItem.Id);
-        //        }
-        //        else
-        //        {
-        //            ContentService.Save(updateNode, CurrentUser.Id);
-        //            node = _umbracoHelper.TypedContent(updateNode.Id);
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        throw new Exception("UpdateNode Error " + ex.Message);
-        //    }
+                //    if (publish)
+                //    {
+                //        Attempt<PublishStatus> result = ContentService.SaveAndPublishWithStatus(updateNode, CurrentUser.Id);
+                //        node = _umbracoHelper.TypedContent(result.Result.ContentItem.Id);
+                //    }
+                //    else
+                //    {
+                //        ContentService.Save(updateNode, CurrentUser.Id);
+                //        node = _umbracoHelper.TypedContent(updateNode.Id);
+                //    }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("UpdateNode Error " + ex.Message);
+            }
 
-        //    return node;
-        //}
+            return node;
+        }
 
-        //private IPublishedContent CreateNode(IPublishedContent model, string docType, bool publish)
-        //{
-        //    IPublishedContent node;
-        //    try
-        //    {
-        //        string json = GetPostedJson();
-        //        Dictionary<string, object> form = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
-        //        if (form == null || !form.ContainsKey("Name"))
-        //            throw new Exception("Name form element is required");
+        private IPublishedContent CreateNode(IPublishedContent model, string docType, bool publish)
+        {
+            IPublishedContent node = model;
+            try
+            {
+                //string json = GetPostedJson();
+                //Dictionary<string, object> form = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
+                //if (form == null || !form.ContainsKey("Name"))
+                //    throw new Exception("Name form element is required");
 
-        //        IContent parentNode = ContentService.GetById(model.Id);
-        //        IContent newNode = ContentService.CreateContent(form["Name"].ToString(), parentNode, docType, CurrentUser.Id);
+                //IContent parentNode = ContentService.GetById(model.Id);
+                //IContent newNode = ContentService.CreateContent(form["Name"].ToString(), parentNode, docType, CurrentUser.Id);
 
-        //        if (newNode == null)
-        //            throw new Exception("New Node is null");
+                //if (newNode == null)
+                //    throw new Exception("New Node is null");
 
-        //        if (form.ContainsKey("ExpireDate"))
-        //            newNode.ExpireDate = (DateTime)form["ExpireDate"];
+                //if (form.ContainsKey("ExpireDate"))
+                //    newNode.ExpireDate = (DateTime)form["ExpireDate"];
 
-        //        if (form.ContainsKey("ReleaseDate"))
-        //            newNode.ReleaseDate = (DateTime)form["ReleaseDate"];
+                //if (form.ContainsKey("ReleaseDate"))
+                //    newNode.ReleaseDate = (DateTime)form["ReleaseDate"];
 
-        //        foreach (Property prop in newNode.Properties)
-        //        {
-        //            try
-        //            {
-        //                KeyValuePair<string, object> kvp = GetValuePair(prop.Alias, form, newNode);
-        //                if (kvp.Value != null)
-        //                    newNode.SetValue(kvp.Key, kvp.Value);
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                Logger.Debug<UHateoas>("New node property error: \"{0}\"", ex.Message);
-        //            }
-        //        }
+                //foreach (Property prop in newNode.Properties)
+                //{
+                //    try
+                //    {
+                //        KeyValuePair<string, object> kvp = GetValuePair(prop.Alias, form, newNode);
+                //        if (kvp.Value != null)
+                //            newNode.SetValue(kvp.Key, kvp.Value);
+                //    }
+                //    catch (Exception ex)
+                //    {
+                //        Logger.Debug<UHateoas>("New node property error: \"{0}\"", ex.Message);
+                //    }
+                //}
 
-        //        if (publish)
-        //        {
-        //            Attempt<PublishStatus> result = ContentService.SaveAndPublishWithStatus(newNode, CurrentUser.Id);
-        //            node = _umbracoHelper.TypedContent(result.Result.ContentItem.Id);
-        //        }
-        //        else
-        //        {
-        //            ContentService.Save(newNode, CurrentUser.Id);
-        //            node = model;
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        throw new Exception("CreateNode Error " + ex.Message);
-        //    }
+                //if (publish)
+                //{
+                //    Attempt<PublishStatus> result = ContentService.SaveAndPublishWithStatus(newNode, CurrentUser.Id);
+                //    node = _umbracoHelper.TypedContent(result.Result.ContentItem.Id);
+                //}
+                //else
+                //{
+                //    ContentService.Save(newNode, CurrentUser.Id);
+                //    node = model;
+                //}
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("CreateNode Error " + ex.Message);
+            }
 
-        //    return node;
-        //}
+            return node;
+        }
 
-        //private Dictionary<string, object> GenerateForm(IPublishedContent node, string docTypeAlias)
-        //{
-        //    try
-        //    {
-        //        Dictionary<string, object> properties = new Dictionary<string, object>();
-        //        SortedSet<string> classes = new SortedSet<string>();
-        //        string title = "";
-        //        IContentType doc = ContentTypeService.GetContentType(docTypeAlias);
+        private Dictionary<string, object> GenerateForm(IPublishedContent node, string docTypeAlias)
+        {
+            try
+            {
+                Dictionary<string, object> properties = new Dictionary<string, object>();
+                //SortedSet<string> classes = new SortedSet<string>();
+                //string title = "";
+                //IContentType doc = ContentTypeService.GetContentType(docTypeAlias);
 
-        //        if (RequestAction == "create")
-        //        {
-        //            if (doc != null)
-        //            {
-        //                docTypeAlias = doc.Alias;
-        //                title = "New " + docTypeAlias;
-        //                AddContentTypeProperties(doc, properties, DataTypeService, null);
-        //                while (doc.ParentId != -1)
-        //                {
-        //                    doc = ContentTypeService.GetContentType(doc.ParentId);
-        //                    AddContentTypeProperties(doc, properties, DataTypeService, null);
-        //                }
+                //if (RequestAction == "create")
+                //{
+                //    if (doc != null)
+                //    {
+                //        docTypeAlias = doc.Alias;
+                //        title = "New " + docTypeAlias;
+                //        AddContentTypeProperties(doc, properties, DataTypeService, null);
+                //        while (doc.ParentId != -1)
+                //        {
+                //            doc = ContentTypeService.GetContentType(doc.ParentId);
+                //            AddContentTypeProperties(doc, properties, DataTypeService, null);
+                //        }
 
-        //                properties.Add("Name", new
-        //                {
-        //                    description = "Name for the Node",
-        //                    group = "Properties",
-        //                    manditory = true,
-        //                    propertyEditor = "Umbraco.Textbox",
-        //                    title = "Name",
-        //                    type = "text",
-        //                    validation = "([^\\s]*)",
-        //                    value = ""
-        //                });
+                //        properties.Add("Name", new
+                //        {
+                //            description = "Name for the Node",
+                //            group = "Properties",
+                //            manditory = true,
+                //            propertyEditor = "Umbraco.Textbox",
+                //            title = "Name",
+                //            type = "text",
+                //            validation = "([^\\s]*)",
+                //            value = ""
+                //        });
 
-        //                properties.Add("ExpiryDate", new
-        //                {
-        //                    description = "Date for the Node to be Unpublished",
-        //                    group = "Properties",
-        //                    manditory = false,
-        //                    propertyEditor = "date",
-        //                    title = "Expriry Date",
-        //                    type = "text",
-        //                    validation = "",
-        //                    value = ""
-        //                });
+                //        properties.Add("ExpiryDate", new
+                //        {
+                //            description = "Date for the Node to be Unpublished",
+                //            group = "Properties",
+                //            manditory = false,
+                //            propertyEditor = "date",
+                //            title = "Expriry Date",
+                //            type = "text",
+                //            validation = "",
+                //            value = ""
+                //        });
 
-        //                properties.Add("ReleaseDate", new
-        //                {
-        //                    description = "Date for the Node to be Published",
-        //                    group = "Properties",
-        //                    manditory = false,
-        //                    propertyEditor = "date",
-        //                    title = "Release Date",
-        //                    type = "text",
-        //                    validation = "",
-        //                    value = ""
-        //                });
-        //            }
-        //        }
+                //        properties.Add("ReleaseDate", new
+                //        {
+                //            description = "Date for the Node to be Published",
+                //            group = "Properties",
+                //            manditory = false,
+                //            propertyEditor = "date",
+                //            title = "Release Date",
+                //            type = "text",
+                //            validation = "",
+                //            value = ""
+                //        });
+                //    }
+                //}
 
-        //        if (RequestAction == "update")
-        //        {
-        //            if (doc != null)
-        //            {
-        //                docTypeAlias = doc.Alias;
-        //                title = "Update " + docTypeAlias;
-        //                AddContentTypeProperties(doc, properties, DataTypeService, node);
-        //                while (doc.ParentId != -1)
-        //                {
-        //                    doc = ContentTypeService.GetContentType(doc.ParentId);
-        //                    AddContentTypeProperties(doc, properties, DataTypeService, node);
-        //                }
-        //                properties.Add("Name", new
-        //                {
-        //                    description = "Name for the Node",
-        //                    group = "Properties",
-        //                    manditory = true,
-        //                    propertyEditor = "Umbraco.Textbox",
-        //                    title = "Name",
-        //                    type = "text",
-        //                    validation = "([^\\s]*)",
-        //                    value = node.Name
-        //                });
+                //if (RequestAction == "update")
+                //{
+                //    if (doc != null)
+                //    {
+                //        docTypeAlias = doc.Alias;
+                //        title = "Update " + docTypeAlias;
+                //        AddContentTypeProperties(doc, properties, DataTypeService, node);
+                //        while (doc.ParentId != -1)
+                //        {
+                //            doc = ContentTypeService.GetContentType(doc.ParentId);
+                //            AddContentTypeProperties(doc, properties, DataTypeService, node);
+                //        }
+                //        properties.Add("Name", new
+                //        {
+                //            description = "Name for the Node",
+                //            group = "Properties",
+                //            manditory = true,
+                //            propertyEditor = "Umbraco.Textbox",
+                //            title = "Name",
+                //            type = "text",
+                //            validation = "([^\\s]*)",
+                //            value = node.Name
+                //        });
 
-        //                properties.Add("ExpiryDate", new
-        //                {
-        //                    description = "Date for the Node to be Unpublished",
-        //                    group = "Properties",
-        //                    manditory = false,
-        //                    propertyEditor = "date",
-        //                    title = "Expiry Date",
-        //                    type = "text",
-        //                    validation = "",
-        //                    value = ""
-        //                });
+                //        properties.Add("ExpiryDate", new
+                //        {
+                //            description = "Date for the Node to be Unpublished",
+                //            group = "Properties",
+                //            manditory = false,
+                //            propertyEditor = "date",
+                //            title = "Expiry Date",
+                //            type = "text",
+                //            validation = "",
+                //            value = ""
+                //        });
 
-        //                properties.Add("ReleaseDate", new
-        //                {
-        //                    description = "Date for the Node to be Published",
-        //                    group = "Properties",
-        //                    manditory = false,
-        //                    propertyEditor = "date",
-        //                    title = "Release Date",
-        //                    type = "text",
-        //                    validation = "",
-        //                    value = ""
-        //                });
-        //            }
-        //        }
+                //        properties.Add("ReleaseDate", new
+                //        {
+                //            description = "Date for the Node to be Published",
+                //            group = "Properties",
+                //            manditory = false,
+                //            propertyEditor = "date",
+                //            title = "Release Date",
+                //            type = "text",
+                //            validation = "",
+                //            value = ""
+                //        });
+                //    }
+                //}
 
-        //        if (RequestAction == "remove")
-        //        {
-        //            if (doc != null)
-        //            {
-        //                docTypeAlias = doc.Alias;
-        //                title = "Update " + docTypeAlias;
-        //                AddContentTypeProperties(doc, properties, DataTypeService, node);
-        //                while (doc.ParentId != -1)
-        //                {
-        //                    doc = ContentTypeService.GetContentType(doc.ParentId);
-        //                    AddContentTypeProperties(doc, properties, DataTypeService, node);
-        //                }
+                //if (RequestAction == "remove")
+                //{
+                //    if (doc != null)
+                //    {
+                //        docTypeAlias = doc.Alias;
+                //        title = "Update " + docTypeAlias;
+                //        AddContentTypeProperties(doc, properties, DataTypeService, node);
+                //        while (doc.ParentId != -1)
+                //        {
+                //            doc = ContentTypeService.GetContentType(doc.ParentId);
+                //            AddContentTypeProperties(doc, properties, DataTypeService, node);
+                //        }
 
-        //                properties.Add("Name", new
-        //                {
-        //                    description = "Name for the Node",
-        //                    group = "Properties",
-        //                    manditory = true,
-        //                    propertyEditor = "Umbraco.Textbox",
-        //                    title = "Name",
-        //                    type = "text",
-        //                    validation = "([^\\s]*)",
-        //                    value = node.Name
-        //                });
-        //            }
-        //        }
+                //        properties.Add("Name", new
+                //        {
+                //            description = "Name for the Node",
+                //            group = "Properties",
+                //            manditory = true,
+                //            propertyEditor = "Umbraco.Textbox",
+                //            title = "Name",
+                //            type = "text",
+                //            validation = "([^\\s]*)",
+                //            value = node.Name
+                //        });
+                //    }
+                //}
 
-        //        classes.Add("x-form");
-        //        classes.Add(docTypeAlias);
-        //        properties.Add("class", classes.ToArray());
-        //        properties.Add("title", title);
-        //        properties.Add("properties", properties);
+                //classes.Add("x-form");
+                //classes.Add(docTypeAlias);
+                //properties.Add("class", classes.ToArray());
+                //properties.Add("title", title);
+                //properties.Add("properties", properties);
 
-        //        return properties;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        throw new Exception("GenerateForm Error " + ex.Message);
-        //    }
-        //}
+                return properties;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("GenerateForm Error " + ex.Message);
+            }
+        }
 
         //private KeyValuePair<string, object> SimplyfyProperty(PropertyInfo prop, IPublishedContent node)
         //{
@@ -1046,18 +1044,18 @@ namespace uHateoas.League
         //    return val;
         //}
 
-        //private List<object> GetChildrenActions(IPublishedContent node)
-        //{
-        //    Dictionary<string, object> action = new Dictionary<string, object>();
-        //    List<object> actions = new List<object>();
-        //    SortedSet<string> classes = new SortedSet<string>();
-        //    if (CanCreate || CanUpdate || CanDelete)
-        //    {
-        //        BuildGetActions(node, ref action, actions, ref classes);
-        //        BuildPostAction(node, ref action, actions, ref classes);
-        //    }
-        //    return actions;
-        //}
+        private List<object> GetChildrenActions(IPublishedContent node)
+        {
+            Dictionary<string, object> action = new Dictionary<string, object>();
+            List<object> actions = new List<object>();
+            SortedSet<string> classes = new SortedSet<string>();
+            if (CanCreate || CanUpdate || CanDelete)
+            {
+                BuildGetActions(node, ref action, actions, ref classes);
+                BuildPostAction(node, ref action, actions, ref classes);
+            }
+            return actions;
+        }
 
         private List<object> ProcessTakeSkip(List<object> entities)
         {
@@ -1079,119 +1077,119 @@ namespace uHateoas.League
             return entities;
         }
 
-        //private IEnumerable<IPublishedContent> SortedData(IEnumerable<IPublishedContent> data)
-        //{
-        //    IEnumerable<IPublishedContent> sortedData;
+        private IEnumerable<IPublishedContent> SortedData(IEnumerable<IPublishedContent> data)
+        {
+            IEnumerable<IPublishedContent> sortedData = new List<IPublishedContent>();
 
-        //    if (!string.IsNullOrEmpty(RequestOrderByDesc))
-        //    {
-        //        switch (RequestOrderByDesc.ToLower())
-        //        {
-        //            case "updatedate":
-        //                sortedData = data.OrderByDescending(x => x.UpdateDate);
-        //                break;
+            if (!string.IsNullOrEmpty(RequestOrderByDesc))
+            {
+                switch (RequestOrderByDesc.ToLower())
+                {
+                    case "updatedate":
+                        sortedData = data.OrderByDescending(x => x.UpdateDate);
+                        break;
 
-        //            case "name":
-        //                sortedData = data.OrderByDescending(x => x.Name);
-        //                break;
+                    case "name":
+                        sortedData = data.OrderByDescending(x => x.Name);
+                        break;
 
-        //            case "createdate":
-        //                sortedData = data.OrderByDescending(x => x.CreateDate);
-        //                break;
+                    case "createdate":
+                        sortedData = data.OrderByDescending(x => x.CreateDate);
+                        break;
 
-        //            case "sortorder":
-        //                sortedData = data.OrderByDescending(x => x.SortOrder);
-        //                break;
+                    case "sortorder":
+                        sortedData = data.OrderByDescending(x => x.SortOrder);
+                        break;
 
-        //            default:
-        //                sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
-        //                    (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
-        //                break;
-        //        }
-        //    }
-        //    else if (!string.IsNullOrEmpty(RequestOrderBy))
-        //    {
-        //        switch (RequestOrderBy.ToLower())
-        //        {
-        //            case "updatedate":
-        //                sortedData = data.OrderBy(x => x.UpdateDate);
-        //                break;
+                    //default:
+                    //    sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
+                    //        (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
+                    //    break;
+                }
+            }
+            else if (!string.IsNullOrEmpty(RequestOrderBy))
+            {
+                switch (RequestOrderBy.ToLower())
+                {
+                    case "updatedate":
+                        sortedData = data.OrderBy(x => x.UpdateDate);
+                        break;
 
-        //            case "name":
-        //                sortedData = data.OrderBy(x => x.Name);
-        //                break;
+                    case "name":
+                        sortedData = data.OrderBy(x => x.Name);
+                        break;
 
-        //            case "createdate":
-        //                sortedData = data.OrderBy(x => x.CreateDate);
-        //                break;
+                    case "createdate":
+                        sortedData = data.OrderBy(x => x.CreateDate);
+                        break;
 
-        //            case "sortorder":
-        //                sortedData = data.OrderBy(x => x.SortOrder);
-        //                break;
+                    case "sortorder":
+                        sortedData = data.OrderBy(x => x.SortOrder);
+                        break;
 
-        //            default:
-        //                sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
-        //                    (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
-        //                break;
-        //        }
-        //    }
-        //    else
-        //    {
-        //        sortedData = data.OrderBy(x => x.SortOrder);
-        //    }
+                    //default:
+                    //    sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
+                    //        (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
+                    //    break;
+                }
+            }
+            else
+            {
+                sortedData = data.OrderBy(x => x.SortOrder);
+            }
 
-        //    return sortedData;
-        //}
+            return sortedData;
+        }
 
-        //private List<object> GetDescendantEntities(IPublishedContent model)
-        //{
-        //    List<object> entities = new List<object>();
-        //    if (!string.IsNullOrEmpty(RequestDescendants))
-        //    {
-        //        IEnumerable<IPublishedContent> descendants;
-        //        string descendantsAlias = RequestDescendants;
+        private List<object> GetDescendantEntities(IPublishedContent model)
+        {
+            List<object> entities = new List<object>();
+            if (!string.IsNullOrEmpty(RequestDescendants))
+            {
+                IEnumerable<IPublishedContent> descendants;
+                string descendantsAlias = RequestDescendants;
 
-        //        if (descendantsAlias == "")
-        //            descendants = model.Descendants();
+                if (descendantsAlias == "")
+                    descendants = model.Descendants();
 
-        //        else if (descendantsAlias.IsNumeric())
-        //            descendants = model.Descendants(Parse(descendantsAlias));
+                //else if (descendantsAlias.IsNumeric())
+                //    descendants = model.Descendants(Parse(descendantsAlias));
 
-        //        else if (descendantsAlias.Contains(","))
-        //        {
-        //            var listDescendants = new List<IPublishedContent>();
-        //            foreach (var descendantAlias in descendantsAlias.Split(','))
-        //            {
-        //                listDescendants.AddRange(model.Descendants(descendantAlias));
-        //            }
-        //            descendants = listDescendants;
-        //        }
+                else if (descendantsAlias.Contains(","))
+                {
+                    var listDescendants = new List<IPublishedContent>();
+                    foreach (var descendantAlias in descendantsAlias.Split(','))
+                    {
+                        listDescendants.AddRange(model.Descendants(descendantAlias));
+                    }
+                    descendants = listDescendants;
+                }
 
-        //        else
-        //            descendants = model.Descendants(descendantsAlias);
+                else
+                    descendants = model.Descendants(descendantsAlias);
 
-        //        var descendantList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? descendants.Where(RequestWhere.ChangeBinary()) : descendants).ToList();
-        //        List<object> descendantObjectList = descendantList.Select(x => Simplify(x)).Cast<object>().ToList();
+                //var descendantList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? descendants.Where(RequestWhere.ChangeBinary()) : descendants).ToList();
+                //List<object> descendantObjectList = descendantList.Select(x => Simplify(x)).Cast<object>().ToList();
 
-        //        entities.AddRange(descendantObjectList);
-        //    }
+                //entities.AddRange(descendantObjectList);
+            }
 
-        //    return ProcessTakeSkip(entities);
-        //}
+            return ProcessTakeSkip(entities);
+        }
 
-        //private List<object> GetChildrenEntities(IPublishedContent currentModel)
-        //{
-        //    List<object> entities = new List<object>();
-        //    if (!string.IsNullOrEmpty(RequestChildren))
-        //    {
-        //        var childList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? children.Where(RequestWhere.ChangeBinary()) : children).ToList();
+        private List<object> GetChildrenEntities(IPublishedContent currentModel)
+        {
+            List<object> entities = new List<object>();
+            if (!string.IsNullOrEmpty(RequestChildren))
+            {
+                //var childList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? children.Where(RequestWhere.ChangeBinary()) : children).ToList();
 
-        //        List<object> childObjectList = childList.Select(x => Simplify(x)).Cast<object>().ToList();
+                //List<object> childObjectList = childList.Select(x => Simplify(x)).Cast<object>().ToList();
 
-        //        entities.AddRange(childObjectList);
-        //    }
-        //    return ProcessTakeSkip(entities);
-        //}
+                //entities.AddRange(childObjectList);
+            }
+            return ProcessTakeSkip(entities);
+        }
 
         //private object ResolveMedia(string name, object property)
         //{
@@ -1441,160 +1439,160 @@ namespace uHateoas.League
         //    }
         //}
 
-        //private void BuildGetActions(IPublishedContent node, ref Dictionary<string, object> action, List<object> actions, ref SortedSet<string> classes)
-        //{
-        //    if (!Context.Request.Params.AllKeys.Contains("action"))
-        //    {
-        //        IContentType currentContentType = ContentTypeService.GetContentType(node.ContentType.Id);
-        //        if (currentContentType != null && currentContentType.AllowedContentTypes.Any() && CanCreate)
-        //        {
-        //            AllowedContentTypes = ContentTypeService.GetAllContentTypes(currentContentType.AllowedContentTypes.Select(ct => ct.Id.Value).ToArray()).ToList();
-        //            if (AllowedContentTypes != null && AllowedContentTypes.Any())
-        //            {
-        //                foreach (IContentType ct in AllowedContentTypes)
-        //                {
-        //                    classes = new SortedSet<string> { ct.Alias, "x-form" };
-        //                    action = new Dictionary<string, object>
-        //                    {
-        //                        {"class", classes.ToArray()},
-        //                        {"title", "Create @content".SmartReplace(new {content = ct.Name})},
-        //                        {"method", "GET"},
-        //                        {
-        //                            "href",
-        //                            GetHateoasHref(node, new {action = "create", doctype = ct.Alias, publish = "false"})
-        //                        },
-        //                        {"type", Context.Request.ContentType}
-        //                    };
-        //                    actions.Add(action);
-        //                }
-        //            }
-        //        }
+        private void BuildGetActions(IPublishedContent node, ref Dictionary<string, object> action, List<object> actions, ref SortedSet<string> classes)
+        {
+            if (!Context.Request.Params.AllKeys.Contains("action"))
+            {
+                //IContentType currentContentType = ContentTypeService.GetContentType(node.ContentType.Id);
+                //if (currentContentType != null && currentContentType.AllowedContentTypes.Any() && CanCreate)
+                //{
+                //    AllowedContentTypes = ContentTypeService.GetAllContentTypes(currentContentType.AllowedContentTypes.Select(ct => ct.Id.Value).ToArray()).ToList();
+                //    if (AllowedContentTypes != null && AllowedContentTypes.Any())
+                //    {
+                //        foreach (IContentType ct in AllowedContentTypes)
+                //        {
+                //            classes = new SortedSet<string> { ct.Alias, "x-form" };
+                //            action = new Dictionary<string, object>
+                //            {
+                //                {"class", classes.ToArray()},
+                //                {"title", "Create @content".SmartReplace(new {content = ct.Name})},
+                //                {"method", "GET"},
+                //                {
+                //                    "href",
+                //                    GetHateoasHref(node, new {action = "create", doctype = ct.Alias, publish = "false"})
+                //                },
+                //                {"type", Context.Request.ContentType}
+                //            };
+                //            actions.Add(action);
+                //        }
+                //    }
+                //}
 
-        //        if (CanUpdate || CanDelete)
-        //        {
-        //            if (currentContentType != null)
-        //                classes = new SortedSet<string> { currentContentType.Alias, "x-form" };
-        //        }
+                if (CanUpdate || CanDelete)
+                {
+                //    if (currentContentType != null)
+                //        classes = new SortedSet<string> { currentContentType.Alias, "x-form" };
+                }
 
-        //        if (CanUpdate)
-        //        {
-        //            //update
-        //            action = new Dictionary<string, object>
-        //            {
-        //                {"class", classes.ToArray()},
-        //                {"title", "Update @content".SmartReplace(new {content = currentContentType?.Name})},
-        //                {"method", "GET"},
-        //                {
-        //                    "href",
-        //                    GetHateoasHref(node,
-        //                        new {action = "update", doctype = currentContentType?.Alias, publish = "false"})
-        //                },
-        //                {"type", Context.Request.ContentType}
-        //            };
-        //            actions.Add(action);
-        //        }
+                if (CanUpdate)
+                {
+                    //update
+                    //action = new Dictionary<string, object>
+                    //{
+                    //    {"class", classes.ToArray()},
+                    //    {"title", "Update @content".SmartReplace(new {content = currentContentType?.Name})},
+                    //    {"method", "GET"},
+                    //    {
+                    //        "href",
+                    //        GetHateoasHref(node,
+                    //            new {action = "update", doctype = currentContentType?.Alias, publish = "false"})
+                    //    },
+                    //    {"type", Context.Request.ContentType}
+                    //};
+                    actions.Add(action);
+                }
 
-        //        if (CanDelete)
-        //        {
-        //            //delete
-        //            action = new Dictionary<string, object>
-        //            {
-        //                {"class", classes.ToArray()},
-        //                {"method", "GET"},
-        //                {"title", "Remove @content".SmartReplace(new {content = currentContentType?.Name})},
-        //                {
-        //                    "href",
-        //                    GetHateoasHref(node,
-        //                        new {action = "remove", doctype = currentContentType?.Alias, delete = "false"})
-        //                },
-        //                {"type", Context.Request.ContentType}
-        //            };
-        //            actions.Add(action);
-        //        }
-        //    }
-        //}
+                if (CanDelete)
+                {
+                    //delete
+                    //action = new Dictionary<string, object>
+                    //{
+                    //    {"class", classes.ToArray()},
+                    //    {"method", "GET"},
+                    //    {"title", "Remove @content".SmartReplace(new {content = currentContentType?.Name})},
+                    //    {
+                    //        "href",
+                    //        GetHateoasHref(node,
+                    //            new {action = "remove", doctype = currentContentType?.Alias, delete = "false"})
+                    //    },
+                    //    {"type", Context.Request.ContentType}
+                    //};
+                    actions.Add(action);
+                }
+            }
+        }
 
-        //private void BuildPostAction(IPublishedContent node, ref Dictionary<string, object> action, List<object> actions, ref SortedSet<string> classes)
-        //{
-        //    if (!string.IsNullOrEmpty(RequestAction) && RequestAction == "create" && !string.IsNullOrEmpty(RequestDocType))
-        //    {
-        //        IContentType currentContentType = ContentTypeService.GetContentType(node.ContentType.Id);
-        //        if (currentContentType != null && currentContentType.AllowedContentTypes.Any())
-        //        {
-        //            AllowedContentTypes = ContentTypeService.GetAllContentTypes(currentContentType.AllowedContentTypes.Select(ct => ct.Id.Value).ToArray()).ToList();
-        //            if (AllowedContentTypes != null && AllowedContentTypes.Any())
-        //            {
-        //                foreach (IContentType ct in AllowedContentTypes)
-        //                {
-        //                    if (ct.Alias == RequestDocType)
-        //                    {
-        //                        classes = new SortedSet<string> { ct.Alias, "x-form" };
-        //                        action = new Dictionary<string, object>
-        //                        {
-        //                            {"class", classes.ToArray()},
-        //                            {"title", "Save @content".SmartReplace(new {content = ct.Name})},
-        //                            {"method", "POST"},
-        //                            {"action", GetHateoasHref(node, new {doctype = ct.Alias, publish = "true"})},
-        //                            {"type", Context.Request.ContentType}
-        //                        };
+        private void BuildPostAction(IPublishedContent node, ref Dictionary<string, object> action, List<object> actions, ref SortedSet<string> classes)
+        {
+            if (!string.IsNullOrEmpty(RequestAction) && RequestAction == "create" && !string.IsNullOrEmpty(RequestDocType))
+            {
+                //IContentType currentContentType = ContentTypeService.GetContentType(node.ContentType.Id);
+                //if (currentContentType != null && currentContentType.AllowedContentTypes.Any())
+                //{
+                //    AllowedContentTypes = ContentTypeService.GetAllContentTypes(currentContentType.AllowedContentTypes.Select(ct => ct.Id.Value).ToArray()).ToList();
+                //    if (AllowedContentTypes != null && AllowedContentTypes.Any())
+                //    {
+                //        foreach (IContentType ct in AllowedContentTypes)
+                //        {
+                //            if (ct.Alias == RequestDocType)
+                //            {
+                //                classes = new SortedSet<string> { ct.Alias, "x-form" };
+                //                action = new Dictionary<string, object>
+                //                {
+                //                    {"class", classes.ToArray()},
+                //                    {"title", "Save @content".SmartReplace(new {content = ct.Name})},
+                //                    {"method", "POST"},
+                //                    {"action", GetHateoasHref(node, new {doctype = ct.Alias, publish = "true"})},
+                //                    {"type", Context.Request.ContentType}
+                //                };
 
-        //                        actions.Add(action);
-        //                    }
-        //                }
-        //            }
-        //        }
-        //    }
+                //                actions.Add(action);
+                //            }
+                //        }
+                //    }
+                //}
+            }
 
-        //    if (!string.IsNullOrEmpty(RequestAction) && RequestAction == "update")
-        //    {
-        //        IContentType ct = ContentTypeService.GetContentType(node.ContentType.Id);
-        //        if (ct.Alias == RequestDocType)
-        //        {
-        //            classes = new SortedSet<string> { ct.Alias, "x-form" };
-        //            action = new Dictionary<string, object>
-        //            {
-        //                {"class", classes.ToArray()},
-        //                {"title", "Update @content".SmartReplace(new {content = ct.Name})},
-        //                {"method", "PUT"},
-        //                {"action", GetHateoasHref(node, new {doctype = ct.Alias, publish = "true"})},
-        //                {"type", Context.Request.ContentType}
-        //            };
-        //            actions.Add(action);
-        //        }
-        //    }
+            if (!string.IsNullOrEmpty(RequestAction) && RequestAction == "update")
+            {
+                //IContentType ct = ContentTypeService.GetContentType(node.ContentType.Id);
+                //if (ct.Alias == RequestDocType)
+                //{
+                //    classes = new SortedSet<string> { ct.Alias, "x-form" };
+                //    action = new Dictionary<string, object>
+                //    {
+                //        {"class", classes.ToArray()},
+                //        {"title", "Update @content".SmartReplace(new {content = ct.Name})},
+                //        {"method", "PUT"},
+                //        {"action", GetHateoasHref(node, new {doctype = ct.Alias, publish = "true"})},
+                //        {"type", Context.Request.ContentType}
+                //    };
+                //    actions.Add(action);
+                //}
+            }
 
-        //    if (!string.IsNullOrEmpty(RequestAction) && RequestAction == "remove")
-        //    {
-        //        IContentType ct = ContentTypeService.GetContentType(node.ContentType.Id);
-        //        if (ct.Alias == RequestDocType)
-        //        {
-        //            classes = new SortedSet<string> { ct.Alias, "x-form" };
-        //            action = new Dictionary<string, object>
-        //            {
-        //                {"class", classes.ToArray()},
-        //                {"title", "Remove @content".SmartReplace(new {content = ct.Name})},
-        //                {"method", "DELETE"},
-        //                {"action", GetHateoasHref(node, new {doctype = ct.Alias, delete = "false"})},
-        //                {"type", Context.Request.ContentType}
-        //            };
-        //            actions.Add(action);
-        //        }
-        //    }
+            if (!string.IsNullOrEmpty(RequestAction) && RequestAction == "remove")
+            {
+                //IContentType ct = ContentTypeService.GetContentType(node.ContentType.Id);
+                //if (ct.Alias == RequestDocType)
+                //{
+                //    classes = new SortedSet<string> { ct.Alias, "x-form" };
+                //    action = new Dictionary<string, object>
+                //    {
+                //        {"class", classes.ToArray()},
+                //        {"title", "Remove @content".SmartReplace(new {content = ct.Name})},
+                //        {"method", "DELETE"},
+                //        {"action", GetHateoasHref(node, new {doctype = ct.Alias, delete = "false"})},
+                //        {"type", Context.Request.ContentType}
+                //    };
+                //    actions.Add(action);
+                //}
+            }
 
-        //    if (!string.IsNullOrEmpty(RequestAction))
-        //    {
-        //        classes = new SortedSet<string> { node.DocumentTypeAlias };
-        //        action = new Dictionary<string, object>
-        //        {
-        //            {"class", classes.ToArray()},
-        //            {"title", "Cancel"},
-        //            {"method", "GET"},
-        //            {"action", GetHateoasHref(node, null)},
-        //            {"type", Context.Request.ContentType}
-        //        };
-        //        actions.Add(action);
-        //    }
-        //}
+            if (!string.IsNullOrEmpty(RequestAction))
+            {
+                //classes = new SortedSet<string> { node.DocumentTypeAlias };
+                //action = new Dictionary<string, object>
+                //{
+                //    {"class", classes.ToArray()},
+                //    {"title", "Cancel"},
+                //    {"method", "GET"},
+                //    {"action", GetHateoasHref(node, null)},
+                //    {"type", Context.Request.ContentType}
+                //};
+                //actions.Add(action);
+            }
+        }
 
         //private void ResolveContent(SortedDictionary<string, object> properties)
         //{

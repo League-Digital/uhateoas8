@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using System.Web.Mvc;
 
-namespace uHateoas.League
+namespace uHateoas
 {
     public partial class UHateoas
     {

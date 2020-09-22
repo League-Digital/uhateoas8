@@ -8,7 +8,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 
-namespace uHateoas.League
+namespace uHateoas
 {
     public static class UExtensions
     {
