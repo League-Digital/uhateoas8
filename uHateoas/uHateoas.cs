@@ -366,19 +366,19 @@ namespace uHateoas
                         case "Version":
                             break;
                         case "Parent":
-                        //if (node.Parent != null)
-                        //    if (HasAccess(node.Parent))
-                        //    {
-                        //        links.Add(new
-                        //        {
-                        //            rel = new[] {
-                        //                "_Parent", node.Parent.DocumentTypeAlias
-                        //            },
-                        //            title = node.Parent.Name,
-                        //            href = GetHateoasHref(node.Parent, null)
-                        //        });
-                        //    }
-                        //break;
+                            if (node.Parent != null)
+                                if (HasAccess(node.Parent))
+                                {
+                                    //links.Add(new
+                                    //{
+                                    //    rel = new[] {
+                                    //    "_Parent", node.Parent.DocumentTypeAlias
+                                    //},
+                                    //    title = node.Parent.Name,
+                                    //    href = GetHateoasHref(node.Parent, null)
+                                    //});
+                                }
+                            break;
                         case "Url":
                             //links.Add(new
                             //{
@@ -410,38 +410,33 @@ namespace uHateoas
 
                         case "DocumentTypeAlias":
                         case "NodeTypeAlias":
-                            //var classes = new SortedSet<string>();
-                            //classes.Add(node.DocumentTypeAlias);
-                            //if (!string.IsNullOrEmpty(RequestDescendants) && isRoot)
-                            //{
-                            //    classes.Add("Descendants");
-                            //}
-                            //if (!string.IsNullOrEmpty(RequestChildren) && isRoot)
-                            //{
-                            //    classes.Add("Children");
-                            //}
-                            //if (showClass)
-                            //{
-                            //    if (SimpleJson)
-                            //        returnProperties.Add("class", string.Join(",", classes.ToArray()));
-                            //    else
-                            //        returnProperties.Add("class", classes.ToArray());
-
-                            //    returnProperties.Add("title", node.Name);
-                            //}
-                            ////goto default;
-                            //var prop = SimplyfyProperty(pi, node);
-                            //properties.Add(prop.Key, prop.Value);
+                            var classes = new SortedSet<string>();
+                            classes.Add(node.ContentType.Alias);
+                            if (!string.IsNullOrEmpty(RequestDescendants) && isRoot)
+                            {
+                                classes.Add("Descendants");
+                            }
+                            if (!string.IsNullOrEmpty(RequestChildren) && isRoot)
+                            {
+                                classes.Add("Children");
+                            }
+                            if (showClass)
+                            {
+                                if (SimpleJson)
+                                    returnProperties.Add("class", string.Join(",", classes.ToArray()));
+                                else
+                                    returnProperties.Add("class", classes.ToArray());
+                                returnProperties.Add("title", node.Name);
+                            }
+                            var prop = SimplyfyProperty(pi, node);
+                            properties.Add(prop.Key, prop.Value);
                             break;
-
                         default:
                             var prop1 = SimplyfyProperty(pi, node);
                             properties.Add(prop1.Key, prop1.Value);
                             break;
-
                     }
                 }
-
                 return returnProperties;
             }
             catch (Exception ex)
@@ -1293,24 +1288,24 @@ namespace uHateoas
             return "text";
         }
 
-        //private string GetHateoasHref(IPublishedContent node, object queryString)
-        //{
-        //    string[] segments = Context.Request.Url.Segments;
-        //    string lastSegment = segments.LastOrDefault();
-        //    string template = "";
-        //    if (lastSegment != null && lastSegment != "/" && lastSegment != MainModel.UrlName && lastSegment != MainModel.UrlName + "/")
-        //        template = lastSegment;
+        private string GetHateoasHref(IPublishedContent node, object queryString)
+        {
+            string[] segments = Context.Request.Url.Segments;
+            string lastSegment = segments.LastOrDefault();
+            string template = "";
+            //if (lastSegment != null && lastSegment != "/" && lastSegment != MainModel.UrlName && lastSegment != MainModel.UrlName + "/")
+            //    template = lastSegment;
 
-        //    string href = $"{Context.Request.Url.Scheme + "://"}{Context.Request.Url.Host}{node.Url}{template}";
+            string href = $"{Context.Request.Url.Scheme + "://"}{Context.Request.Url.Host}{node.Url}{template}";
 
-        //    if (queryString != null)
-        //    {
-        //        PropertyInfo[] nvps = queryString.GetType().GetProperties();
-        //        href = nvps.Aggregate(href, (current, nvp) => current + ((current.Contains("?") ? "&" : "?") + nvp.Name + "=" + nvp.GetValue(queryString, null)));
-        //    }
+            if (queryString != null)
+            {
+                PropertyInfo[] nvps = queryString.GetType().GetProperties();
+                href = nvps.Aggregate(href, (current, nvp) => current + ((current.Contains("?") ? "&" : "?") + nvp.Name + "=" + nvp.GetValue(queryString, null)));
+            }
 
-        //    return href;
-        //}
+            return href;
+        }
 
         private bool HasAccess(IPublishedContent node)
         {
