@@ -391,23 +391,19 @@ namespace uHateoas
 
                         case "Children":
                         case "GetChildrenAsList":
-                            //foreach (var child in node.Children.ToList())
-                            //{
-                            //    if (HasAccess(child))
-                            //    {
-                            //        links.Add(new
-                            //        {
-                            //            rel = new[]
-                            //           {
-                            //                "_Child", child.DocumentTypeAlias
-                            //            },
-                            //            title = child.Name,
-                            //            href = GetHateoasHref(child, null)
-                            //        });
-                            //    }
-                            //}
+                            foreach (var child in node.Children.ToList())
+                            {
+                                if (HasAccess(child))
+                                {
+                                    links.Add(new
+                                    {
+                                        rel = new[] { "_Child", child.ContentType.Alias },
+                                        title = child.Name,
+                                        href = GetHateoasHref(child, null)
+                                    });
+                                }
+                            }
                             break;
-
                         case "DocumentTypeAlias":
                         case "NodeTypeAlias":
                             var classes = new SortedSet<string>();
@@ -1036,11 +1032,9 @@ namespace uHateoas
                     case "sortorder":
                         sortedData = data.OrderByDescending(x => x.SortOrder);
                         break;
-
-                        //default:
-                        //    sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
-                        //        (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
-                        //    break;
+                    //default:
+                    //    sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ? (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
+                    //    break;
                 }
             }
             else if (!string.IsNullOrEmpty(RequestOrderBy))
@@ -1062,11 +1056,10 @@ namespace uHateoas
                     case "sortorder":
                         sortedData = data.OrderBy(x => x.SortOrder);
                         break;
-
-                        //default:
-                        //    sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
-                        //        (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
-                        //    break;
+                    //default:
+                    //    sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
+                    //        (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
+                    //    break;
                 }
             }
             else
@@ -1100,16 +1093,13 @@ namespace uHateoas
                     }
                     descendants = listDescendants;
                 }
-
                 else
                     descendants = model.Descendants(descendantsAlias);
 
                 //var descendantList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? descendants.Where(RequestWhere.ChangeBinary()) : descendants).ToList();
                 //List<object> descendantObjectList = descendantList.Select(x => Simplify(x)).Cast<object>().ToList();
-
                 //entities.AddRange(descendantObjectList);
             }
-
             return ProcessTakeSkip(entities);
         }
 
@@ -1118,10 +1108,18 @@ namespace uHateoas
             List<object> entities = new List<object>();
             if (!string.IsNullOrEmpty(RequestChildren))
             {
-                //var childList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? children.Where(RequestWhere.ChangeBinary()) : children).ToList();
-
+                IEnumerable<IPublishedContent> children = currentModel.Children;
+                List<IPublishedContent> childList = new List<IPublishedContent>();
+                //if (!string.IsNullOrEmpty(RequestWhere))
+                //{
+                //    childList = children.Where(RequestWhere.ChangeBinary()).OrderBy(x => x.SortOrder).ToList();
+                //}
+                //else
+                //{
+                //    childList.AddRange(children.OrderBy(x => x.SortOrder));
+                //}
+                //childList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? children.Where(RequestWhere.ChangeBinary()) : children).ToList();
                 //List<object> childObjectList = childList.Select(x => Simplify(x)).Cast<object>().ToList();
-
                 //entities.AddRange(childObjectList);
             }
             return ProcessTakeSkip(entities);
