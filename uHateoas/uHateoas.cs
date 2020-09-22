@@ -5,9 +5,10 @@ using System.Configuration;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
+using System.Text.RegularExpressions;
 using System.Web;
-using System.Web.Security;
 using Umbraco.Core.Cache;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
@@ -344,162 +345,102 @@ namespace uHateoas
         {
             try
             {
-                //if (!HasAccess(node))
-                //    throw new Exception("Access Denied");
+                if (!HasAccess(node))
+                    throw new Exception("Access Denied");
 
                 Dictionary<string, object> returnProperties = new Dictionary<string, object>();
-                //SortedDictionary<string, object> properties = new SortedDictionary<string, object>();
-                //PropertyInfo[] props = typeof(IPublishedContent).GetProperties();
-                //List<object> links = new List<object>();
+                SortedDictionary<string, object> properties = new SortedDictionary<string, object>();
+                PropertyInfo[] props = typeof(IPublishedContent).GetProperties();
+                List<object> links = new List<object>();
 
-                //foreach (PropertyInfo pi in props.OrderBy(p => p.Name))
-                //{
-                //    switch (pi.Name)
-                //    {
-                //        case "ContentSet":
-                //        case "ContentType":
-                //        case "PropertiesAsList":
-                //        case "ChildrenAsList":
-                //        case "Properties":
-                //        case "Item":
-                //        case "Version":
-                //            break;
+                foreach (PropertyInfo pi in props.OrderBy(p => p.Name))
+                {
+                    switch (pi.Name)
+                    {
+                        case "ContentSet":
+                        case "ContentType":
+                        case "PropertiesAsList":
+                        case "ChildrenAsList":
+                        case "Properties":
+                        case "Item":
+                        case "Version":
+                            break;
+                        case "Parent":
+                        //if (node.Parent != null)
+                        //    if (HasAccess(node.Parent))
+                        //    {
+                        //        links.Add(new
+                        //        {
+                        //            rel = new[] {
+                        //                "_Parent", node.Parent.DocumentTypeAlias
+                        //            },
+                        //            title = node.Parent.Name,
+                        //            href = GetHateoasHref(node.Parent, null)
+                        //        });
+                        //    }
+                        //break;
+                        case "Url":
+                            //links.Add(new
+                            //{
+                            //    rel = new[] { "_Self", node.DocumentTypeAlias },
+                            //    title = node.Name,
+                            //    href = GetHateoasHref(node, null)
+                            //});
+                            //properties.Add(pi.Name, node.Url);
+                            break;
 
-                //        case "Parent":
-                //            if (node.Parent != null)
-                //                if (HasAccess(node.Parent))
-                //                {
-                //                    links.Add(new
-                //                    {
-                //                        rel = new[] {
-                //                            "_Parent", node.Parent.DocumentTypeAlias
-                //                        },
-                //                        title = node.Parent.Name,
-                //                        href = GetHateoasHref(node.Parent, null)
-                //                    });
-                //                }
+                        case "Children":
+                        case "GetChildrenAsList":
+                            //foreach (var child in node.Children.ToList())
+                            //{
+                            //    if (HasAccess(child))
+                            //    {
+                            //        links.Add(new
+                            //        {
+                            //            rel = new[]
+                            //           {
+                            //                "_Child", child.DocumentTypeAlias
+                            //            },
+                            //            title = child.Name,
+                            //            href = GetHateoasHref(child, null)
+                            //        });
+                            //    }
+                            //}
+                            break;
 
-                //            break;
+                        case "DocumentTypeAlias":
+                        case "NodeTypeAlias":
+                            //var classes = new SortedSet<string>();
+                            //classes.Add(node.DocumentTypeAlias);
+                            //if (!string.IsNullOrEmpty(RequestDescendants) && isRoot)
+                            //{
+                            //    classes.Add("Descendants");
+                            //}
+                            //if (!string.IsNullOrEmpty(RequestChildren) && isRoot)
+                            //{
+                            //    classes.Add("Children");
+                            //}
+                            //if (showClass)
+                            //{
+                            //    if (SimpleJson)
+                            //        returnProperties.Add("class", string.Join(",", classes.ToArray()));
+                            //    else
+                            //        returnProperties.Add("class", classes.ToArray());
 
-                //        case "Url":
-                //            links.Add(new
-                //            {
-                //                rel = new[] { "_Self", node.DocumentTypeAlias },
-                //                title = node.Name,
-                //                href = GetHateoasHref(node, null)
-                //            });
-                //            properties.Add(pi.Name, node.Url);
-                //            break;
+                            //    returnProperties.Add("title", node.Name);
+                            //}
+                            ////goto default;
+                            //var prop = SimplyfyProperty(pi, node);
+                            //properties.Add(prop.Key, prop.Value);
+                            break;
 
-                //        case "Children":
-                //        case "GetChildrenAsList":
-                //            foreach (var child in node.Children.ToList())
-                //            {
-                //                if (HasAccess(child))
-                //                {
-                //                    links.Add(new
-                //                    {
-                //                        rel = new[]
-                //                       {
-                //                            "_Child", child.DocumentTypeAlias
-                //                        },
-                //                        title = child.Name,
-                //                        href = GetHateoasHref(child, null)
-                //                    });
-                //                }
-                //            }
-                //            break;
+                        default:
+                            var prop1 = SimplyfyProperty(pi, node);
+                            properties.Add(prop1.Key, prop1.Value);
+                            break;
 
-                //        case "DocumentTypeAlias":
-                //        case "NodeTypeAlias":
-                //            var classes = new SortedSet<string>();
-                //            classes.Add(node.DocumentTypeAlias);
-                //            if (!string.IsNullOrEmpty(RequestDescendants) && isRoot)
-                //            {
-                //                classes.Add("Descendants");
-                //            }
-                //            if (!string.IsNullOrEmpty(RequestChildren) && isRoot)
-                //            {
-                //                classes.Add("Children");
-                //            }
-                //            if (showClass)
-                //            {
-                //                if (SimpleJson)
-                //                    returnProperties.Add("class", string.Join(",", classes.ToArray()));
-                //                else
-                //                    returnProperties.Add("class", classes.ToArray());
-
-                //                returnProperties.Add("title", node.Name);
-                //            }
-                //            //goto default;
-                //            var prop = SimplyfyProperty(pi, node);
-                //            properties.Add(prop.Key, prop.Value);
-                //            break;
-
-                //        default:
-                //            var prop1 = SimplyfyProperty(pi, node);
-                //            properties.Add(prop1.Key, prop1.Value);
-                //            break;
-
-                //    }
-                //}
-
-                //var useAllProperties = false;
-                //var propertyNames = new List<string>();
-                //if (!string.IsNullOrEmpty(RequestSelect))
-                //{
-                //    propertyNames = RequestSelect.ToLower().Split(',').ToList();
-                //}
-
-                //else
-                //    useAllProperties = true;
-
-                //foreach (IPublishedProperty pal in node.Properties)
-                //{
-                //    if (pal != null)
-                //    {
-                //        if (useAllProperties || propertyNames.Contains(pal.Alias.ToLower()))
-                //        {
-                //            var prop = SimplyfyProperty(pal, node);
-                //            properties.Add(prop.Key, prop.Value);
-                //        }
-                //    }
-                //}
-
-                //if (propertyNames.Any())
-                //{
-                //    var properties1 = properties;
-                //    var selectedProperties = new SortedDictionary<string, object>();
-
-                //    foreach (var a in properties.Where(p => propertyNames.Contains(p.Key.ToLower())))
-                //    {
-                //        selectedProperties.Add(a.Key, properties1[a.Key]);
-                //    }
-
-                //    properties = selectedProperties;
-                //}
-
-                //ResolveContent(properties);
-
-                //returnProperties.Add("properties", properties);
-
-                //if (entities.Any())
-                //{
-                //    returnProperties.Add("entities", entities);
-                //}
-
-                //if (!SimpleJson)
-                //{
-                //    if (actions.Any())
-                //    {
-                //        returnProperties.Add("actions", actions);
-                //    }
-
-                //    if (links.Any())
-                //    {
-                //        returnProperties.Add("links", links);
-                //    }
-                //}
+                    }
+                }
 
                 return returnProperties;
             }
@@ -866,29 +807,29 @@ namespace uHateoas
             }
         }
 
-        //private KeyValuePair<string, object> SimplyfyProperty(PropertyInfo prop, IPublishedContent node)
-        //{
-        //    object val;
-        //    try
-        //    {
-        //        val = prop.GetValue(node, null);
-        //        val = ResolveMedia(prop.Name, val).ToString();
-        //        if (!string.IsNullOrEmpty(RequestHtml) && string.Equals(RequestHtml, "false", StringComparison.OrdinalIgnoreCase))
-        //        {
-        //            val = val.ToString().StripHtml();
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        val = ex.Message;
-        //    }
+        private KeyValuePair<string, object> SimplyfyProperty(PropertyInfo prop, IPublishedContent node)
+        {
+            object val;
+            try
+            {
+                val = prop.GetValue(node, null);
+                val = ResolveMedia(prop.Name, val).ToString();
+                if (!string.IsNullOrEmpty(RequestHtml) && string.Equals(RequestHtml, "false", StringComparison.OrdinalIgnoreCase))
+                {
+                    val = val.ToString().StripHtml();
+                }
+            }
+            catch (Exception ex)
+            {
+                val = ex.Message;
+            }
 
-        //    string propTitle = Regex.Replace(prop.Name, "(\\B[A-Z])", " $1");
-        //    if (SimpleJson)
-        //        return new KeyValuePair<string, object>(prop.Name, val);
+            string propTitle = Regex.Replace(prop.Name, "(\\B[A-Z])", " $1");
+            if (SimpleJson)
+                return new KeyValuePair<string, object>(prop.Name, val);
 
-        //    return new KeyValuePair<string, object>(prop.Name, new { title = propTitle, value = val });
-        //}
+            return new KeyValuePair<string, object>(prop.Name, new { title = propTitle, value = val });
+        }
 
         //private static HtmlHelper CreateHtmlHelper(object model)
         //{
@@ -1101,10 +1042,10 @@ namespace uHateoas
                         sortedData = data.OrderByDescending(x => x.SortOrder);
                         break;
 
-                    //default:
-                    //    sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
-                    //        (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
-                    //    break;
+                        //default:
+                        //    sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
+                        //        (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
+                        //    break;
                 }
             }
             else if (!string.IsNullOrEmpty(RequestOrderBy))
@@ -1127,10 +1068,10 @@ namespace uHateoas
                         sortedData = data.OrderBy(x => x.SortOrder);
                         break;
 
-                    //default:
-                    //    sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
-                    //        (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
-                    //    break;
+                        //default:
+                        //    sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
+                        //        (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
+                        //    break;
                 }
             }
             else
@@ -1191,51 +1132,51 @@ namespace uHateoas
             return ProcessTakeSkip(entities);
         }
 
-        //private object ResolveMedia(string name, object property)
-        //{
-        //    if (RequestResolveMedia.Contains(name.ToLower()))
-        //    {
-        //        try
-        //        {
-        //            if (property != null && property.ToString().Contains(","))
-        //            {
-        //                property = string.Join(",",
-        //                    property.ToString().Split(',').Select(subKey => _umbracoHelper.TypedMedia(subKey).Url)
-        //                        .ToArray());
-        //            }
-        //            else if (property is IEnumerable<IPublishedContent> &&
-        //                     ((IEnumerable<IPublishedContent>)property).Any())
-        //            {
-        //                var items = new List<string>();
-        //                foreach (var mItem in (IEnumerable<IPublishedContent>)property)
-        //                {
-        //                    if (mItem != null && !string.IsNullOrEmpty(mItem.Url))
-        //                    {
-        //                        items.Add(mItem.Url);
-        //                    }
-        //                }
+        private object ResolveMedia(string name, object property)
+        {
+            if (RequestResolveMedia.Contains(name.ToLower()))
+            {
+                try
+                {
+                    if (property != null && property.ToString().Contains(","))
+                    {
+                        //property = string.Join(",",
+                        //    property.ToString().Split(',').Select(subKey => _umbracoHelper.TypedMedia(subKey).Url)
+                        //        .ToArray());
+                    }
+                    else if (property is IEnumerable<IPublishedContent> &&
+                             ((IEnumerable<IPublishedContent>)property).Any())
+                    {
+                        var items = new List<string>();
+                        foreach (var mItem in (IEnumerable<IPublishedContent>)property)
+                        {
+                            if (mItem != null && !string.IsNullOrEmpty(mItem.Url))
+                            {
+                                items.Add(mItem.Url);
+                            }
+                        }
 
-        //                property = items.ToArray();
-        //            }
-        //            else if (property is IPublishedContent)
-        //            {
-        //                IPublishedContent mItem = property as IPublishedContent;
-        //                property = mItem.Url;
-        //            }
-        //        }
-        //        catch (Exception)
-        //        {
-        //            property = "#";
-        //        }
-        //    }
-        //    else if (property is IPublishedContent && (property as IPublishedContent).ItemType == PublishedItemType.Media)
-        //    {
-        //        IPublishedContent mItem = property as IPublishedContent;
-        //        property = mItem.Id;
-        //    }
+                        property = items.ToArray();
+                    }
+                    else if (property is IPublishedContent)
+                    {
+                        IPublishedContent mItem = property as IPublishedContent;
+                        property = mItem.Url;
+                    }
+                }
+                catch (Exception)
+                {
+                    property = "#";
+                }
+            }
+            else if (property is IPublishedContent && (property as IPublishedContent).ItemType == PublishedItemType.Media)
+            {
+                IPublishedContent mItem = property as IPublishedContent;
+                property = mItem.Id;
+            }
 
-        //    return property;
-        //}
+            return property;
+        }
 
         private object ResolveToIds(string name, object property)
         {
@@ -1371,15 +1312,15 @@ namespace uHateoas
         //    return href;
         //}
 
-        //private bool HasAccess(IPublishedContent node)
-        //{
-        //    if (_umbracoHelper.IsProtected(node.Path))
-        //    {
-        //        return _umbracoHelper.MemberHasAccess(node.Path);
-        //    }
-
-        //    return true;
-        //}
+        private bool HasAccess(IPublishedContent node)
+        {
+            IPublicAccessService publicAccessService = Umbraco.Core.Composing.Current.Services.PublicAccessService;
+            if (publicAccessService.IsProtected(node.Path))
+            {
+                return _umbracoHelper.MemberHasAccess(node.Path);
+            }
+            return true;
+        }
 
         //private static string GetSimpleType(IDataTypeDefinition dtd)
         //{
@@ -1470,8 +1411,8 @@ namespace uHateoas
 
                 if (CanUpdate || CanDelete)
                 {
-                //    if (currentContentType != null)
-                //        classes = new SortedSet<string> { currentContentType.Alias, "x-form" };
+                    //    if (currentContentType != null)
+                    //        classes = new SortedSet<string> { currentContentType.Alias, "x-form" };
                 }
 
                 if (CanUpdate)
