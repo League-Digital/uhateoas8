@@ -206,8 +206,6 @@ namespace uHateoas
         //    return Process(_umbracoHelper.TypedContent(CurrentPageId));
         //}
 
-
-
         //Process Overrides
         public HtmlString Process()
         {
