@@ -3,12 +3,14 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Dynamic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Web;
+using Umbraco.Core;
 using Umbraco.Core.Cache;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
@@ -93,8 +95,6 @@ namespace uHateoas
         {
             Context = HttpContext.Current;
             _umbracoHelper = Umbraco.Web.Composing.Current.UmbracoHelper;
-
-            //IUmbracoContextFactory 
 
             var template = string.Empty;
             var contentType = Context.Request.ContentType;
@@ -367,26 +367,25 @@ namespace uHateoas
                             if (node.Parent != null)
                                 if (HasAccess(node.Parent))
                                 {
-                                    //links.Add(new
-                                    //{
-                                    //    rel = new[] {
-                                    //    "_Parent", node.Parent.DocumentTypeAlias
-                                    //},
-                                    //    title = node.Parent.Name,
-                                    //    href = GetHateoasHref(node.Parent, null)
-                                    //});
+                                    links.Add(new
+                                    {
+                                        rel = new[] {
+                                        "_Parent", node.Parent.ContentType.Alias
+                                    },
+                                        title = node.Parent.Name,
+                                        href = GetHateoasHref(node.Parent, null)
+                                    });
                                 }
                             break;
                         case "Url":
-                            //links.Add(new
-                            //{
-                            //    rel = new[] { "_Self", node.DocumentTypeAlias },
-                            //    title = node.Name,
-                            //    href = GetHateoasHref(node, null)
-                            //});
-                            //properties.Add(pi.Name, node.Url);
+                            links.Add(new
+                            {
+                                rel = new[] { "_Self", node.ContentType.Alias },
+                                title = node.Name,
+                                href = GetHateoasHref(node, null)
+                            });
+                            properties.Add(pi.Name, node.Url);
                             break;
-
                         case "Children":
                         case "GetChildrenAsList":
                             foreach (var child in node.Children.ToList())
@@ -444,16 +443,16 @@ namespace uHateoas
             Actions = new List<object>();
             try
             {
-                //EncodeHtml = false;
-                //if (CanCreate || CanUpdate || CanDelete)
-                //    Actions.AddRange(GetChildrenActions(model));
-                //else
-                //    return ProcessRequest(model);
+                EncodeHtml = false;
+                if (CanCreate || CanUpdate || CanDelete)
+                    Actions.AddRange(GetChildrenActions(model));
+                else
+                    return ProcessRequest(model);
                 Dictionary<string, object> simpleNode = GenerateForm(model, docTypeAlias);
-                //if (Actions.Any())
-                //{
-                //    simpleNode.Add("actions", Actions);
-                //}
+                if (Actions.Any())
+                {
+                    simpleNode.Add("actions", Actions);
+                }
                 return simpleNode;
             }
             catch (Exception ex)
@@ -521,14 +520,15 @@ namespace uHateoas
             IPublishedContent node = model;
             try
             {
-                //IContent deleteNode = ContentService.GetById(model.Id);
-                //if (deleteNode == null)
-                //    throw new Exception("Node is null");
-                //if (delete)
-                //    ContentService.Delete(deleteNode, CurrentUser.Id);
-                //else
-                //    ContentService.UnPublish(deleteNode, CurrentUser.Id);
-                //node = _umbracoHelper.TypedContent(deleteNode.ParentId);
+                IContent deleteNode = ContentService.GetById(model.Id);
+                if (deleteNode == null)
+                    throw new Exception("Node is null");
+                if (delete)
+                    ContentService.Delete(deleteNode, CurrentUser.Id);
+                else
+                    ContentService.Unpublish(deleteNode, "*", CurrentUser.Id);
+
+                node = _umbracoHelper.Content(deleteNode.ParentId);
             }
             catch (Exception ex)
             {
@@ -542,45 +542,45 @@ namespace uHateoas
             IPublishedContent node = model;
             try
             {
-                //    IContent updateNode = ContentService.GetById(model.Id);
-                //    if (updateNode == null)
-                //        throw new Exception("Node is null");
+                IContent updateNode = ContentService.GetById(model.Id);
+                if (updateNode == null)
+                    throw new Exception("Node is null");
 
-                //    string json = GetPostedJson();
-                //    Dictionary<string, object> form = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
-                //    if (form.ContainsKey("Name"))
-                //        updateNode.Name = form["Name"].ToString();
+                string json = GetPostedJson();
+                Dictionary<string, object> form = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
+                if (form.ContainsKey("Name"))
+                    updateNode.Name = form["Name"].ToString();
 
-                //    if (form.ContainsKey("ExpireDate"))
-                //        updateNode.ExpireDate = (DateTime)form["ExpireDate"];
+                //if (form.ContainsKey("ExpireDate"))
+                //    updateNode.ExpireDate = (DateTime)form["ExpireDate"];
 
-                //    if (form.ContainsKey("ReleaseDate"))
-                //        updateNode.ReleaseDate = (DateTime)form["ReleaseDate"];
+                //if (form.ContainsKey("ReleaseDate"))
+                //    updateNode.ReleaseDate = (DateTime)form["ReleaseDate"];
 
-                //    foreach (Property prop in updateNode.Properties)
-                //    {
-                //        try
-                //        {
-                //            KeyValuePair<string, object> kvp = GetValuePair(prop.Alias, form, updateNode);
-                //            if (kvp.Value != null)
-                //                updateNode.SetValue(kvp.Key, kvp.Value);
-                //        }
-                //        catch (Exception ex)
-                //        {
-                //            Logger.Debug<UHateoas>("Node property error: \"{0}\"", () => ex.Message);
-                //        }
-                //    }
+                foreach (Property prop in updateNode.Properties)
+                {
+                    try
+                    {
+                        KeyValuePair<string, object> kvp = GetValuePair(prop.Alias, form, updateNode);
+                        if (kvp.Value != null)
+                            updateNode.SetValue(kvp.Key, kvp.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug<UHateoas>("Node property error: \"{0}\"", ex.Message);
+                    }
+                }
 
-                //    if (publish)
-                //    {
-                //        Attempt<PublishStatus> result = ContentService.SaveAndPublishWithStatus(updateNode, CurrentUser.Id);
-                //        node = _umbracoHelper.TypedContent(result.Result.ContentItem.Id);
-                //    }
-                //    else
-                //    {
-                //        ContentService.Save(updateNode, CurrentUser.Id);
-                //        node = _umbracoHelper.TypedContent(updateNode.Id);
-                //    }
+                if (publish)
+                {
+                    var result = ContentService.SaveAndPublish(updateNode, "*", CurrentUser.Id);
+                    node = _umbracoHelper.Content(result.Content.Id);
+                }
+                else
+                {
+                    ContentService.Save(updateNode, CurrentUser.Id);
+                    node = _umbracoHelper.Content(updateNode.Id);
+                }
             }
             catch (Exception ex)
             {
@@ -595,47 +595,48 @@ namespace uHateoas
             IPublishedContent node = model;
             try
             {
-                //string json = GetPostedJson();
-                //Dictionary<string, object> form = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
-                //if (form == null || !form.ContainsKey("Name"))
-                //    throw new Exception("Name form element is required");
+                string json = GetPostedJson();
+                Dictionary<string, object> form = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
+                if (form == null || !form.ContainsKey("Name"))
+                    throw new Exception("Name form element is required");
 
-                //IContent parentNode = ContentService.GetById(model.Id);
-                //IContent newNode = ContentService.CreateContent(form["Name"].ToString(), parentNode, docType, CurrentUser.Id);
+                IContent parentNode = ContentService.GetById(model.Id);
+                IContent newNode = ContentService.CreateContent(form["Name"].ToString(), parentNode.GetUdi(), docType, CurrentUser.Id);
 
-                //if (newNode == null)
-                //    throw new Exception("New Node is null");
+                if (newNode == null)
+                    throw new Exception("New Node is null");
 
-                //if (form.ContainsKey("ExpireDate"))
-                //    newNode.ExpireDate = (DateTime)form["ExpireDate"];
+                if (form.ContainsKey("ExpireDate"))
+                    newNode.ContentSchedule.Add(new ContentSchedule("*", (DateTime)form["ExpireDate"], ContentScheduleAction.Expire));
 
-                //if (form.ContainsKey("ReleaseDate"))
-                //    newNode.ReleaseDate = (DateTime)form["ReleaseDate"];
+                if (form.ContainsKey("ReleaseDate"))
+                    newNode.ContentSchedule.Add(new ContentSchedule("*", (DateTime)form["ReleaseDate"], ContentScheduleAction.Release));
 
-                //foreach (Property prop in newNode.Properties)
-                //{
-                //    try
-                //    {
-                //        KeyValuePair<string, object> kvp = GetValuePair(prop.Alias, form, newNode);
-                //        if (kvp.Value != null)
-                //            newNode.SetValue(kvp.Key, kvp.Value);
-                //    }
-                //    catch (Exception ex)
-                //    {
-                //        Logger.Debug<UHateoas>("New node property error: \"{0}\"", ex.Message);
-                //    }
-                //}
+                foreach (Property prop in newNode.Properties)
+                {
+                    try
+                    {
+                        KeyValuePair<string, object> kvp = GetValuePair(prop.Alias, form, newNode);
+                        if (kvp.Value != null)
+                            newNode.SetValue(kvp.Key, kvp.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug<UHateoas>("New node property error: \"{0}\"", ex.Message);
+                    }
+                }
 
-                //if (publish)
-                //{
-                //    Attempt<PublishStatus> result = ContentService.SaveAndPublishWithStatus(newNode, CurrentUser.Id);
-                //    node = _umbracoHelper.TypedContent(result.Result.ContentItem.Id);
-                //}
-                //else
-                //{
-                //    ContentService.Save(newNode, CurrentUser.Id);
-                //    node = model;
-                //}
+                if (publish)
+                {
+                    //Attempt<PublishStatus> result = ContentService.SaveAndPublishWithStatus(newNode, CurrentUser.Id);
+                    PublishResult result = ContentService.SaveAndPublish(newNode, "*", CurrentUser.Id);
+                    node = _umbracoHelper.Content(result.Content.Id);
+                }
+                else
+                {
+                    ContentService.Save(newNode, CurrentUser.Id);
+                    node = model;
+                }
             }
             catch (Exception ex)
             {
@@ -650,143 +651,143 @@ namespace uHateoas
             try
             {
                 Dictionary<string, object> properties = new Dictionary<string, object>();
-                //SortedSet<string> classes = new SortedSet<string>();
-                //string title = "";
-                //IContentType doc = ContentTypeService.GetContentType(docTypeAlias);
+                SortedSet<string> classes = new SortedSet<string>();
+                string title = "";
+                IContentType doc = ContentTypeService.GetAll().FirstOrDefault(x => x.Alias == docTypeAlias);
 
-                //if (RequestAction == "create")
-                //{
-                //    if (doc != null)
-                //    {
-                //        docTypeAlias = doc.Alias;
-                //        title = "New " + docTypeAlias;
-                //        AddContentTypeProperties(doc, properties, DataTypeService, null);
-                //        while (doc.ParentId != -1)
-                //        {
-                //            doc = ContentTypeService.GetContentType(doc.ParentId);
-                //            AddContentTypeProperties(doc, properties, DataTypeService, null);
-                //        }
+                if (RequestAction == "create")
+                {
+                    if (doc != null)
+                    {
+                        docTypeAlias = doc.Alias;
+                        title = "New " + docTypeAlias;
+                        AddContentTypeProperties(doc, properties, DataTypeService, null);
+                        while (doc.ParentId != -1)
+                        {
+                            doc = ContentTypeService.GetAll().FirstOrDefault(x => x.Id == doc.ParentId);
+                            AddContentTypeProperties(doc, properties, DataTypeService, null);
+                        }
 
-                //        properties.Add("Name", new
-                //        {
-                //            description = "Name for the Node",
-                //            group = "Properties",
-                //            manditory = true,
-                //            propertyEditor = "Umbraco.Textbox",
-                //            title = "Name",
-                //            type = "text",
-                //            validation = "([^\\s]*)",
-                //            value = ""
-                //        });
+                        properties.Add("Name", new
+                        {
+                            description = "Name for the Node",
+                            group = "Properties",
+                            manditory = true,
+                            propertyEditor = "Umbraco.Textbox",
+                            title = "Name",
+                            type = "text",
+                            validation = "([^\\s]*)",
+                            value = ""
+                        });
 
-                //        properties.Add("ExpiryDate", new
-                //        {
-                //            description = "Date for the Node to be Unpublished",
-                //            group = "Properties",
-                //            manditory = false,
-                //            propertyEditor = "date",
-                //            title = "Expriry Date",
-                //            type = "text",
-                //            validation = "",
-                //            value = ""
-                //        });
+                        properties.Add("ExpiryDate", new
+                        {
+                            description = "Date for the Node to be Unpublished",
+                            group = "Properties",
+                            manditory = false,
+                            propertyEditor = "date",
+                            title = "Expriry Date",
+                            type = "text",
+                            validation = "",
+                            value = ""
+                        });
 
-                //        properties.Add("ReleaseDate", new
-                //        {
-                //            description = "Date for the Node to be Published",
-                //            group = "Properties",
-                //            manditory = false,
-                //            propertyEditor = "date",
-                //            title = "Release Date",
-                //            type = "text",
-                //            validation = "",
-                //            value = ""
-                //        });
-                //    }
-                //}
+                        properties.Add("ReleaseDate", new
+                        {
+                            description = "Date for the Node to be Published",
+                            group = "Properties",
+                            manditory = false,
+                            propertyEditor = "date",
+                            title = "Release Date",
+                            type = "text",
+                            validation = "",
+                            value = ""
+                        });
+                    }
+                }
 
-                //if (RequestAction == "update")
-                //{
-                //    if (doc != null)
-                //    {
-                //        docTypeAlias = doc.Alias;
-                //        title = "Update " + docTypeAlias;
-                //        AddContentTypeProperties(doc, properties, DataTypeService, node);
-                //        while (doc.ParentId != -1)
-                //        {
-                //            doc = ContentTypeService.GetContentType(doc.ParentId);
-                //            AddContentTypeProperties(doc, properties, DataTypeService, node);
-                //        }
-                //        properties.Add("Name", new
-                //        {
-                //            description = "Name for the Node",
-                //            group = "Properties",
-                //            manditory = true,
-                //            propertyEditor = "Umbraco.Textbox",
-                //            title = "Name",
-                //            type = "text",
-                //            validation = "([^\\s]*)",
-                //            value = node.Name
-                //        });
+                if (RequestAction == "update")
+                {
+                    if (doc != null)
+                    {
+                        docTypeAlias = doc.Alias;
+                        title = "Update " + docTypeAlias;
+                        AddContentTypeProperties(doc, properties, DataTypeService, node);
+                        while (doc.ParentId != -1)
+                        {
+                            doc = ContentTypeService.GetAll().FirstOrDefault(x => x.Id == doc.ParentId);
+                            AddContentTypeProperties(doc, properties, DataTypeService, node);
+                        }
+                        properties.Add("Name", new
+                        {
+                            description = "Name for the Node",
+                            group = "Properties",
+                            manditory = true,
+                            propertyEditor = "Umbraco.Textbox",
+                            title = "Name",
+                            type = "text",
+                            validation = "([^\\s]*)",
+                            value = node.Name
+                        });
 
-                //        properties.Add("ExpiryDate", new
-                //        {
-                //            description = "Date for the Node to be Unpublished",
-                //            group = "Properties",
-                //            manditory = false,
-                //            propertyEditor = "date",
-                //            title = "Expiry Date",
-                //            type = "text",
-                //            validation = "",
-                //            value = ""
-                //        });
+                        properties.Add("ExpiryDate", new
+                        {
+                            description = "Date for the Node to be Unpublished",
+                            group = "Properties",
+                            manditory = false,
+                            propertyEditor = "date",
+                            title = "Expiry Date",
+                            type = "text",
+                            validation = "",
+                            value = ""
+                        });
 
-                //        properties.Add("ReleaseDate", new
-                //        {
-                //            description = "Date for the Node to be Published",
-                //            group = "Properties",
-                //            manditory = false,
-                //            propertyEditor = "date",
-                //            title = "Release Date",
-                //            type = "text",
-                //            validation = "",
-                //            value = ""
-                //        });
-                //    }
-                //}
+                        properties.Add("ReleaseDate", new
+                        {
+                            description = "Date for the Node to be Published",
+                            group = "Properties",
+                            manditory = false,
+                            propertyEditor = "date",
+                            title = "Release Date",
+                            type = "text",
+                            validation = "",
+                            value = ""
+                        });
+                    }
+                }
 
-                //if (RequestAction == "remove")
-                //{
-                //    if (doc != null)
-                //    {
-                //        docTypeAlias = doc.Alias;
-                //        title = "Update " + docTypeAlias;
-                //        AddContentTypeProperties(doc, properties, DataTypeService, node);
-                //        while (doc.ParentId != -1)
-                //        {
-                //            doc = ContentTypeService.GetContentType(doc.ParentId);
-                //            AddContentTypeProperties(doc, properties, DataTypeService, node);
-                //        }
+                if (RequestAction == "remove")
+                {
+                    if (doc != null)
+                    {
+                        docTypeAlias = doc.Alias;
+                        title = "Update " + docTypeAlias;
+                        AddContentTypeProperties(doc, properties, DataTypeService, node);
+                        while (doc.ParentId != -1)
+                        {
+                            doc = ContentTypeService.GetAll().FirstOrDefault(x => x.Id == doc.ParentId);
+                            AddContentTypeProperties(doc, properties, DataTypeService, node);
+                        }
 
-                //        properties.Add("Name", new
-                //        {
-                //            description = "Name for the Node",
-                //            group = "Properties",
-                //            manditory = true,
-                //            propertyEditor = "Umbraco.Textbox",
-                //            title = "Name",
-                //            type = "text",
-                //            validation = "([^\\s]*)",
-                //            value = node.Name
-                //        });
-                //    }
-                //}
+                        properties.Add("Name", new
+                        {
+                            description = "Name for the Node",
+                            group = "Properties",
+                            manditory = true,
+                            propertyEditor = "Umbraco.Textbox",
+                            title = "Name",
+                            type = "text",
+                            validation = "([^\\s]*)",
+                            value = node.Name
+                        });
+                    }
+                }
 
-                //classes.Add("x-form");
-                //classes.Add(docTypeAlias);
-                //properties.Add("class", classes.ToArray());
-                //properties.Add("title", title);
-                //properties.Add("properties", properties);
+                classes.Add("x-form");
+                classes.Add(docTypeAlias);
+                properties.Add("class", classes.ToArray());
+                properties.Add("title", title);
+                properties.Add("properties", properties);
 
                 return properties;
             }
@@ -944,35 +945,35 @@ namespace uHateoas
         //    return new KeyValuePair<string, object>(prop.Alias, new { title = propTitle, value = SetPropType(val, GetPropType(val)), type = GetPropType(val), propertyEditor = propertyEditorAlias });
         //}
 
-        //private KeyValuePair<string, object> GetValuePair(string alias, Dictionary<string, object> form, IContent newNode)
-        //{
-        //    KeyValuePair<string, object> val = new KeyValuePair<string, object>(alias, null);
-        //    PropertyType propType = newNode.PropertyTypes.FirstOrDefault(p => p.Alias == alias);
+        private KeyValuePair<string, object> GetValuePair(string alias, Dictionary<string, object> form, IContent newNode)
+        {
+            KeyValuePair<string, object> val = new KeyValuePair<string, object>(alias, null);
+            //PropertyType propType = newNode.PropertyTypes.FirstOrDefault(p => p.Alias == alias);
 
-        //    if (propType == null)
-        //        return val;
-        //    if (form[alias] == null)
-        //        return val;
+            //if (propType == null)
+            //    return val;
+            //if (form[alias] == null)
+            //    return val;
 
-        //    IDataTypeDefinition dtd = DataTypeService.GetDataTypeDefinitionById(propType.DataTypeDefinitionId);
+            //IDataTypeDefinition dtd = DataTypeService.GetDataTypeDefinitionById(propType.DataTypeDefinitionId);
 
-        //    switch (dtd.DatabaseType)
-        //    {
-        //        case DataTypeDatabaseType.Date:
-        //            val = new KeyValuePair<string, object>(alias, DateTime.Parse(form[alias].ToString()));
-        //            break;
+            //switch (dtd.DatabaseType)
+            //{
+            //    case DataTypeDatabaseType.Date:
+            //        val = new KeyValuePair<string, object>(alias, DateTime.Parse(form[alias].ToString()));
+            //        break;
 
-        //        case DataTypeDatabaseType.Integer:
-        //            val = new KeyValuePair<string, object>(alias, Parse(form[alias].ToString()));
-        //            break;
+            //    case DataTypeDatabaseType.Integer:
+            //        val = new KeyValuePair<string, object>(alias, Parse(form[alias].ToString()));
+            //        break;
 
-        //        default:
-        //            val = new KeyValuePair<string, object>(alias, form[alias].ToString());
-        //            break;
+            //    default:
+            //        val = new KeyValuePair<string, object>(alias, form[alias].ToString());
+            //        break;
 
-        //    }
-        //    return val;
-        //}
+            //}
+            return val;
+        }
 
         private List<object> GetChildrenActions(IPublishedContent node)
         {
@@ -1030,9 +1031,9 @@ namespace uHateoas
                     case "sortorder":
                         sortedData = data.OrderByDescending(x => x.SortOrder);
                         break;
-                    //default:
-                    //    sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ? (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
-                    //    break;
+                        //default:
+                        //    sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ? (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
+                        //    break;
                 }
             }
             else if (!string.IsNullOrEmpty(RequestOrderBy))
@@ -1054,10 +1055,10 @@ namespace uHateoas
                     case "sortorder":
                         sortedData = data.OrderBy(x => x.SortOrder);
                         break;
-                    //default:
-                    //    sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
-                    //        (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
-                    //    break;
+                        //default:
+                        //    sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
+                        //        (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
+                        //    break;
                 }
             }
             else
@@ -1079,8 +1080,8 @@ namespace uHateoas
                 if (descendantsAlias == "")
                     descendants = model.Descendants();
 
-                //else if (descendantsAlias.IsNumeric())
-                //    descendants = model.Descendants(Parse(descendantsAlias));
+                else if (descendantsAlias.IsNumeric())
+                    descendants = model.Descendants(System.Int32.Parse(descendantsAlias));
 
                 else if (descendantsAlias.Contains(","))
                 {
@@ -1095,8 +1096,9 @@ namespace uHateoas
                     descendants = model.Descendants(descendantsAlias);
 
                 //var descendantList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? descendants.Where(RequestWhere.ChangeBinary()) : descendants).ToList();
-                //List<object> descendantObjectList = descendantList.Select(x => Simplify(x)).Cast<object>().ToList();
-                //entities.AddRange(descendantObjectList);
+                var descendantList = descendants;
+                List<object> descendantObjectList = descendantList.Select(x => Simplify(x)).Cast<object>().ToList();
+                entities.AddRange(descendantObjectList);
             }
             return ProcessTakeSkip(entities);
         }
@@ -1108,17 +1110,18 @@ namespace uHateoas
             {
                 IEnumerable<IPublishedContent> children = currentModel.Children;
                 List<IPublishedContent> childList = new List<IPublishedContent>();
-                //if (!string.IsNullOrEmpty(RequestWhere))
-                //{
-                //    childList = children.Where(RequestWhere.ChangeBinary()).OrderBy(x => x.SortOrder).ToList();
-                //}
-                //else
-                //{
-                //    childList.AddRange(children.OrderBy(x => x.SortOrder));
-                //}
+                if (!string.IsNullOrEmpty(RequestWhere))
+                {
+                    //childList = children.Where(RequestWhere.ChangeBinary()).OrderBy(x => x.SortOrder).ToList();
+                    childList.AddRange(children.OrderBy(x => x.SortOrder));
+                }
+                else
+                {
+                    childList.AddRange(children.OrderBy(x => x.SortOrder));
+                }
                 //childList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? children.Where(RequestWhere.ChangeBinary()) : children).ToList();
-                //List<object> childObjectList = childList.Select(x => Simplify(x)).Cast<object>().ToList();
-                //entities.AddRange(childObjectList);
+                List<object> childObjectList = childList.Select(x => Simplify(x)).Cast<object>().ToList();
+                entities.AddRange(childObjectList);
             }
             return ProcessTakeSkip(entities);
         }
@@ -1135,8 +1138,7 @@ namespace uHateoas
                         //    property.ToString().Split(',').Select(subKey => _umbracoHelper.TypedMedia(subKey).Url)
                         //        .ToArray());
                     }
-                    else if (property is IEnumerable<IPublishedContent> &&
-                             ((IEnumerable<IPublishedContent>)property).Any())
+                    else if (property is IEnumerable<IPublishedContent> && ((IEnumerable<IPublishedContent>)property).Any())
                     {
                         var items = new List<string>();
                         foreach (var mItem in (IEnumerable<IPublishedContent>)property)
@@ -1146,7 +1148,6 @@ namespace uHateoas
                                 items.Add(mItem.Url);
                             }
                         }
-
                         property = items.ToArray();
                     }
                     else if (property is IPublishedContent)
@@ -1289,7 +1290,8 @@ namespace uHateoas
             string[] segments = Context.Request.Url.Segments;
             string lastSegment = segments.LastOrDefault();
             string template = "";
-            //if (lastSegment != null && lastSegment != "/" && lastSegment != MainModel.UrlName && lastSegment != MainModel.UrlName + "/")
+
+            //if (lastSegment != null && lastSegment != "/" && lastSegment != MainModel..UrlName && lastSegment != MainModel.UrlName + "/")
             //    template = lastSegment;
 
             string href = $"{Context.Request.Url.Scheme + "://"}{Context.Request.Url.Host}{node.Url}{template}";
@@ -1335,41 +1337,41 @@ namespace uHateoas
         //    return val;
         //}
 
-        //private static void AddContentTypeProperties(IContentType newDoc, Dictionary<string, object> properties, IDataTypeService dataTypeService, IPublishedContent node)
-        //{
-        //    if (newDoc?.PropertyGroups != null)
-        //    {
-        //        foreach (PropertyGroup propGroup in newDoc.PropertyGroups)
-        //        {
-        //            foreach (PropertyType propType in propGroup.PropertyTypes)
-        //            {
-        //                if (!properties.ContainsKey(propType.Alias))
-        //                {
-        //                    IDataTypeDefinition dtd = dataTypeService.GetDataTypeDefinitionById(propType.DataTypeDefinitionId);
-        //                    var property = new Dictionary<string, object>
-        //                    {
-        //                        {"title", propType.Name},
-        //                        {"value", node == null ? "" : node.GetPropertyValue<string>(propType.Alias)},
-        //                        {"group", propGroup.Name},
-        //                        {"type", GetSimpleType(dtd)},
-        //                        {"manditory", propType.Mandatory},
-        //                        {"validation", propType.ValidationRegExp},
-        //                        {"description", propType.Description},
-        //                        {"propertyEditor", propType.PropertyEditorAlias}
-        //                    };
+        private static void AddContentTypeProperties(IContentType newDoc, Dictionary<string, object> properties, IDataTypeService dataTypeService, IPublishedContent node)
+        {
+            if (newDoc?.PropertyGroups != null)
+            {
+                foreach (PropertyGroup propGroup in newDoc.PropertyGroups)
+                {
+                    foreach (PropertyType propType in propGroup.PropertyTypes)
+                    {
+                        if (!properties.ContainsKey(propType.Alias))
+                        {
+                            //IDataTypeDefinition dtd = dataTypeService.GetDataTypeDefinitionById(propType.DataTypeDefinitionId);
+                            //var property = new Dictionary<string, object>
+                            //{
+                            //    {"title", propType.Name},
+                            //    {"value", node == null ? "" : node.GetPropertyValue<string>(propType.Alias)},
+                            //    {"group", propGroup.Name},
+                            //    {"type", GetSimpleType(dtd)},
+                            //    {"manditory", propType.Mandatory},
+                            //    {"validation", propType.ValidationRegExp},
+                            //    {"description", propType.Description},
+                            //    {"propertyEditor", propType.PropertyEditorAlias}
+                            //};
 
-        //                    IEnumerable<string> prevalues = dataTypeService.GetPreValuesByDataTypeId(propType.DataTypeDefinitionId);
-        //                    if (prevalues != null && prevalues.Any())
-        //                    {
-        //                        property.Add("prevalues", prevalues);
-        //                    }
+                            //IEnumerable<string> prevalues = dataTypeService.GetPreValuesByDataTypeId(propType.DataTypeDefinitionId);
+                            //if (prevalues != null && prevalues.Any())
+                            //{
+                            //    property.Add("prevalues", prevalues);
+                            //}
 
-        //                    properties.Add(propType.Alias, property);
-        //                }
-        //            }
-        //        }
-        //    }
-        //}
+                            //properties.Add(propType.Alias, property);
+                        }
+                    }
+                }
+            }
+        }
 
         private void BuildGetActions(IPublishedContent node, ref Dictionary<string, object> action, List<object> actions, ref SortedSet<string> classes)
         {
