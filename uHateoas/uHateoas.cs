@@ -1,15 +1,16 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Dynamic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Web;
+using System.Web.Mvc;
 using Umbraco.Core;
 using Umbraco.Core.Cache;
 using Umbraco.Core.Logging;
@@ -70,13 +71,11 @@ namespace uHateoas
 
         private readonly ILogger Logger;
 
-        //Constructors
         public UHateoas()
         {
             Initialise();
         }
 
-        //Constructors
         protected UHateoas(SerializationInfo info, StreamingContext context)
         {
             Initialise();
@@ -129,7 +128,7 @@ namespace uHateoas
 
             Context.Response.ContentType = string.IsNullOrEmpty(template) ? outputType : "application/json";
 
-            CacheHours = 24 * 7; // uhateoas will cache for seven days by default
+            CacheHours = 24 * 7;
             CacheMinutes = 0;
             CacheSeconds = 0;
 
@@ -200,13 +199,6 @@ namespace uHateoas
                 }), xmlRoot).OuterXml);
         }
 
-        //public Dictionary<string, object> Process(dynamic currentPage)
-        //{
-        //    CurrentPageId = currentPage.Id;
-        //    return Process(_umbracoHelper.TypedContent(CurrentPageId));
-        //}
-
-        //Process Overrides
         public HtmlString Process()
         {
             try
@@ -224,7 +216,12 @@ namespace uHateoas
             }
         }
 
-        //Process Current Model
+        /// <summary>
+        /// Process Current Model
+        /// </summary>
+        /// <param name="model"></param>
+        /// <param name="simple"></param>
+        /// <returns></returns>
         public Dictionary<string, object> Process(IPublishedContent model, bool simple = false)
         {
             MainModel = model;
@@ -296,7 +293,11 @@ namespace uHateoas
             return Data;
         }
 
-        //Process Helper Methods
+        /// <summary>
+        /// Process Helper Methods
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
         private Dictionary<string, object> ProcessRequest(IPublishedContent model)
         {
             if (IsDebug)
@@ -551,11 +552,11 @@ namespace uHateoas
                 if (form.ContainsKey("Name"))
                     updateNode.Name = form["Name"].ToString();
 
-                //if (form.ContainsKey("ExpireDate"))
-                //    updateNode.ExpireDate = (DateTime)form["ExpireDate"];
+                if (form.ContainsKey("ExpireDate"))
+                    updateNode.ContentSchedule.Add(new ContentSchedule("*", (DateTime)form["ExpireDate"], ContentScheduleAction.Expire));
 
-                //if (form.ContainsKey("ReleaseDate"))
-                //    updateNode.ReleaseDate = (DateTime)form["ReleaseDate"];
+                if (form.ContainsKey("ReleaseDate"))
+                    updateNode.ContentSchedule.Add(new ContentSchedule("*", (DateTime)form["ReleaseDate"], ContentScheduleAction.Release));
 
                 foreach (Property prop in updateNode.Properties)
                 {
@@ -821,129 +822,126 @@ namespace uHateoas
             return new KeyValuePair<string, object>(prop.Name, new { title = propTitle, value = val });
         }
 
-        //private static HtmlHelper CreateHtmlHelper(object model)
-        //{
-        //    var cc = new ControllerContext
-        //    {
-        //        RequestContext = UmbracoContext.Current.HttpContext.Request.RequestContext
-        //    };
-        //    var viewContext = new ViewContext(cc, new FakeView(), new ViewDataDictionary(model), new TempDataDictionary(), new StringWriter());
-        //    return new HtmlHelper(viewContext, new ViewPage());
-        //}
+        private static HtmlHelper CreateHtmlHelper(object model)
+        {
+            var cc = new ControllerContext
+            {
+                //RequestContext = UmbracoContext.Current.HttpContext.Request.RequestContext
+            };
+            var viewContext = new ViewContext(cc, new FakeView(), new ViewDataDictionary(model), new TempDataDictionary(), new StringWriter());
+            return new HtmlHelper(viewContext, new ViewPage());
+        }
 
+        private KeyValuePair<string, object> SimplyfyProperty(IPublishedProperty prop, IPublishedContent node)
+        {
+            object val = prop.GetValue();
+            var pubPropType = node.ContentType.GetPropertyType(prop.Alias);
+            string propertyEditorAlias = pubPropType.Alias;
+            string propName = prop.Alias; // prop.PropertyTypeAlias.Substring(0, 1).ToUpper() + prop.PropertyTypeAlias.Substring(1);
+            string propTitle = Regex.Replace(propName, "(\\B[A-Z])", " $1");
+            if (val != null)
+            {
+                //if (val is DynamicXml)
+                //{
+                //    try
+                //    {
+                //        XmlDocument doc = new XmlDocument();
+                //        doc.LoadXml(val.ToString());
+                //        var jsonText = JsonConvert.SerializeXmlNode(doc);
+                //        val = JsonConvert.DeserializeObject<ExpandoObject>(jsonText);
+                //    }
+                //    catch (Exception)
+                //    {
+                //        val = EncodeHtml ? Context.Server.HtmlEncode(prop.Value.ToString()) : prop.Value.ToString();
+                //    }
+                //}
 
-        //private KeyValuePair<string, object> SimplyfyProperty(IPublishedProperty prop, IPublishedContent node)
-        //{
-        //    object val = prop.GetValue();
-        //    PublishedPropertyType pubPropType = node.ContentType.GetPropertyType(prop.Alias);
-        //    string propertyEditorAlias = pubPropType.Alias;
-        //    string propName = prop.Alias; // prop.PropertyTypeAlias.Substring(0, 1).ToUpper() + prop.PropertyTypeAlias.Substring(1);
-        //    string propTitle = Regex.Replace(propName, "(\\B[A-Z])", " $1");
-        //    if (val != null)
-        //    {
-        //        if (val is DynamicXml)
-        //        {
-        //            try
-        //            {
-        //                XmlDocument doc = new XmlDocument();
-        //                doc.LoadXml(val.ToString());
-        //                var jsonText = JsonConvert.SerializeXmlNode(doc);
-        //                val = JsonConvert.DeserializeObject<ExpandoObject>(jsonText);
-        //            }
-        //            catch (Exception)
-        //            {
-        //                val = EncodeHtml ? Context.Server.HtmlEncode(prop.Value.ToString()) : prop.Value.ToString();
-        //            }
-        //        }
+                val = ResolveMedia(propName, val);
+                val = ResolveToIds(propName, val);
+                if (!string.IsNullOrEmpty(RequestHtml) && string.Equals(RequestHtml, "false", StringComparison.OrdinalIgnoreCase))
+                    val = val.ToString().StripHtml();
 
-        //        val = ResolveMedia(propName, val);
-        //        val = ResolveToIds(propName, val);
-        //        if (!string.IsNullOrEmpty(RequestHtml) && string.Equals(RequestHtml, "false", StringComparison.OrdinalIgnoreCase))
-        //            val = val.ToString().StripHtml();
+                if (propertyEditorAlias == "Umbraco.MultipleTextstring")
+                {
+                    val = JsonConvert.SerializeObject(prop.GetValue() as string[], Formatting.Indented,
+                        new JsonSerializerSettings()
+                        {
+                            ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+                        });
+                }
 
-        //        if (propertyEditorAlias == "Umbraco.MultipleTextstring")
-        //        {
-        //            val = JsonConvert.SerializeObject(prop.Value as string[], Formatting.Indented,
-        //                new JsonSerializerSettings()
-        //                {
-        //                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore
-        //                });
-        //        }
+                if (propertyEditorAlias == "Umbraco.NestedContent")
+                {
+                    var useAllProperties = false;
+                    var propertyNames = new List<string>();
+                    if (!string.IsNullOrEmpty(RequestSelect))
+                    {
+                        propertyNames = RequestSelect.ToLower().Split(',').ToList();
+                    }
 
-        //        if (propertyEditorAlias == "Umbraco.NestedContent")
-        //        {
-        //            var useAllProperties = false;
-        //            var propertyNames = new List<string>();
-        //            if (!string.IsNullOrEmpty(RequestSelect))
-        //            {
-        //                propertyNames = RequestSelect.ToLower().Split(',').ToList();
-        //            }
+                    else
+                        useAllProperties = true;
 
-        //            else
-        //                useAllProperties = true;
+                    val = val == null ? null : prop.GetValue();
+                    if (val != null)
+                    {
+                        var v = ((JArray)(JToken)JsonConvert.DeserializeObject(val.ToString())).Children();
+                        var items = new List<Dictionary<string, object>>();
 
-        //            val = val == null ? null : prop.DataValue;
-        //            if (val != null)
-        //            {
-        //                var v = ((JArray)(JToken)JsonConvert.DeserializeObject(val.ToString())).Children();
-        //                var items = new List<Dictionary<string, object>>();
+                        foreach (var contentPiece in v)
+                        {
+                            Dictionary<string, object> newProps = new Dictionary<string, object>();
+                            foreach (JProperty x in contentPiece.Children())
+                            {
+                                if ((useAllProperties || propertyNames.Contains(x.Name.ToLower())) && (!(x.First() is JArray)))
+                                {
+                                    var item = x.First().ToString();
+                                    if (item.IndexOf("umb://document", StringComparison.CurrentCultureIgnoreCase) >= 0)
+                                    {
+                                        var udi = Udi.Parse(item);
+                                        var content = _umbracoHelper.Content(udi);
+                                        newProps.Add(x.Name,
+                                            content != null
+                                                ? JToken.FromObject(Simplify(content))
+                                                : x.Value.ToString());
+                                    }
+                                    else if (item.IndexOf("umb://media", StringComparison.CurrentCultureIgnoreCase) >= 0)
+                                    {
+                                        var udi = Udi.Parse(item);
+                                        var media = _umbracoHelper.Media(udi);
+                                        newProps.Add(x.Name, media != null ? media.Url : x.Value.ToString());
+                                    }
+                                    else
+                                    {
+                                        newProps.Add(x.Name, x.Value.ToString());
+                                    }
+                                }
+                            }
+                            items.Add(newProps);
+                        }
+                        val = items;
+                    }
+                }
 
-        //                foreach (var contentPiece in v)
-        //                {
-        //                    Dictionary<string, object> newProps = new Dictionary<string, object>();
-        //                    foreach (JProperty x in contentPiece.Children())
-        //                    {
-        //                        if ((useAllProperties || propertyNames.Contains(x.Name.ToLower())) && (!(x.First() is JArray)))
-        //                        {
-        //                            var item = x.First().ToString();
-        //                            if (item.IndexOf("umb://document", StringComparison.CurrentCultureIgnoreCase) >= 0)
-        //                            {
-        //                                var udi = Udi.Parse(item);
-        //                                var content = _umbracoHelper.TypedContent(udi);
-        //                                newProps.Add(x.Name,
-        //                                    content != null
-        //                                        ? JToken.FromObject(Simplify(content))
-        //                                        : x.Value.ToString());
-        //                            }
-        //                            else if (item.IndexOf("umb://media", StringComparison.CurrentCultureIgnoreCase) >= 0)
-        //                            {
-        //                                var udi = Udi.Parse(item);
-        //                                var media = _umbracoHelper.TypedMedia(udi);
-        //                                newProps.Add(x.Name, media != null ? media.Url : x.Value.ToString());
-        //                            }
-        //                            else
-        //                            {
-        //                                newProps.Add(x.Name, x.Value.ToString());
-        //                            }
-        //                        }
-        //                    }
+                if (propertyEditorAlias == "Umbraco.Grid")
+                {
+                    var model = prop.GetValue();
+                    var html = CreateHtmlHelper(model);
 
-        //                    items.Add(newProps);
-        //                }
+                    var asString = model as string;
+                    if (asString != null && string.IsNullOrEmpty(asString))
+                    {
+                        val = string.Empty;
+                    }
+                    else
+                        val = html.GetGridHtml(node, prop.Alias, "GenesisGrid-fluid");
+                }
+            }
+            if (SimpleJson)
+                return new KeyValuePair<string, object>(prop.Alias.ToFirstUpper(), SetPropType(val, GetPropType(val)));
 
-        //                val = items;
-        //            }
-        //        }
-
-        //        if (propertyEditorAlias == "Umbraco.Grid")
-        //        {
-        //            var model = prop.GetValue();
-        //            var html = CreateHtmlHelper(model);
-
-        //            var asString = model as string;
-        //            if (asString != null && string.IsNullOrEmpty(asString))
-        //            {
-        //                val = string.Empty;
-        //            }
-        //            else
-        //                val = html.GetGridHtml(node, prop.Alias, "GenesisGrid-fluid");
-        //        }
-        //    }
-        //    if (SimpleJson)
-        //        return new KeyValuePair<string, object>(prop.Alias.ToFirstUpper(), SetPropType(val, GetPropType(val)));
-
-        //    return new KeyValuePair<string, object>(prop.Alias, new { title = propTitle, value = SetPropType(val, GetPropType(val)), type = GetPropType(val), propertyEditor = propertyEditorAlias });
-        //}
+            return new KeyValuePair<string, object>(prop.Alias, new { title = propTitle, value = SetPropType(val, GetPropType(val)), type = GetPropType(val), propertyEditor = propertyEditorAlias });
+        }
 
         private KeyValuePair<string, object> GetValuePair(string alias, Dictionary<string, object> form, IContent newNode)
         {
@@ -1315,27 +1313,26 @@ namespace uHateoas
             return true;
         }
 
-        //private static string GetSimpleType(IDataTypeDefinition dtd)
-        //{
-        //    string val;
+        private static string GetSimpleType(IDataType dtd)
+        {
+            string val;
 
-        //    switch (dtd.DatabaseType)
-        //    {
-        //        case DataTypeDatabaseType.Date:
-        //            val = "date";
-        //            break;
+            switch (dtd.DatabaseType)
+            {
+                //case DataTypeDatabaseType.Date:
+                //    val = "date";
+                //    break;
 
-        //        case DataTypeDatabaseType.Integer:
-        //            val = "number";
-        //            break;
+                //case DataTypeDatabaseType.Integer:
+                //    val = "number";
+                //    break;
+                default:
+                    val = "text";
+                    break;
+            }
 
-        //        default:
-        //            val = "text";
-        //            break;
-        //    }
-
-        //    return val;
-        //}
+            return val;
+        }
 
         private static void AddContentTypeProperties(IContentType newDoc, Dictionary<string, object> properties, IDataTypeService dataTypeService, IPublishedContent node)
         {
@@ -1347,26 +1344,25 @@ namespace uHateoas
                     {
                         if (!properties.ContainsKey(propType.Alias))
                         {
-                            //IDataTypeDefinition dtd = dataTypeService.GetDataTypeDefinitionById(propType.DataTypeDefinitionId);
-                            //var property = new Dictionary<string, object>
-                            //{
-                            //    {"title", propType.Name},
-                            //    {"value", node == null ? "" : node.GetPropertyValue<string>(propType.Alias)},
-                            //    {"group", propGroup.Name},
-                            //    {"type", GetSimpleType(dtd)},
-                            //    {"manditory", propType.Mandatory},
-                            //    {"validation", propType.ValidationRegExp},
-                            //    {"description", propType.Description},
-                            //    {"propertyEditor", propType.PropertyEditorAlias}
-                            //};
+                            var dtd = dataTypeService.GetAll().FirstOrDefault(x => x.Id == propType.DataTypeId);
+                            var property = new Dictionary<string, object>
+                            {
+                                {"title", propType.Name},
+                                {"value", node == null ? "" : node.GetProperty(propType.Alias).GetValue()},
+                                {"group", propGroup.Name},
+                                {"type", dtd.DatabaseType}, //GetSimpleType(dtd)},
+                                {"manditory", propType.Mandatory},
+                                {"validation", propType.ValidationRegExp},
+                                {"description", propType.Description},
+                                {"propertyEditor", propType.PropertyEditorAlias}
+                            };
 
-                            //IEnumerable<string> prevalues = dataTypeService.GetPreValuesByDataTypeId(propType.DataTypeDefinitionId);
-                            //if (prevalues != null && prevalues.Any())
-                            //{
-                            //    property.Add("prevalues", prevalues);
-                            //}
-
-                            //properties.Add(propType.Alias, property);
+                            var prevalues = dataTypeService.GetDataType(propType.DataTypeId);
+                            if (prevalues != null)
+                            {
+                                property.Add("prevalues", prevalues);
+                            }
+                            properties.Add(propType.Alias, property);
                         }
                     }
                 }
@@ -1528,41 +1524,41 @@ namespace uHateoas
             }
         }
 
-        //private void ResolveContent(SortedDictionary<string, object> properties)
-        //{
-        //    if (!string.IsNullOrEmpty(RequestResolveContent))
-        //    {
-        //        foreach (string key in RequestResolveContent.Split(','))
-        //        {
-        //            if (properties.ContainsKey(key))
-        //            {
-        //                try
-        //                {
-        //                    if ((dynamic)properties[key] is int)
-        //                    {
-        //                        int nodeId = (Int32)properties[key];
-        //                        if (nodeId != CurrentPageId && key != "Path")
-        //                            properties[key] = Simplify(_umbracoHelper.TypedContent(nodeId));
-        //                    }
-        //                    else if ((dynamic)properties[key].GetType() == typeof(string))
-        //                    {
-        //                        List<object> content = new List<object>();
-        //                        foreach (string node in ((string)properties[key]).Split(','))
-        //                        {
-        //                            int nodeId = Parse(node);
-        //                            if (nodeId != CurrentPageId && key != "Path")
-        //                                content.Add(Simplify(_umbracoHelper.TypedContent(nodeId)));
-        //                        }
-        //                        properties[key] = content;
-        //                    }
-        //                }
-        //                catch (Exception)
-        //                {
-        //                    properties[key] = properties[key];
-        //                }
-        //            }
-        //        }
-        //    }
-        //}
+        private void ResolveContent(SortedDictionary<string, object> properties)
+        {
+            if (!string.IsNullOrEmpty(RequestResolveContent))
+            {
+                foreach (string key in RequestResolveContent.Split(','))
+                {
+                    if (properties.ContainsKey(key))
+                    {
+                        try
+                        {
+                            if ((dynamic)properties[key] is int)
+                            {
+                                int nodeId = (Int32)properties[key];
+                                if (nodeId != CurrentPageId && key != "Path")
+                                    properties[key] = Simplify(_umbracoHelper.Content(nodeId));
+                            }
+                            else if ((dynamic)properties[key].GetType() == typeof(string))
+                            {
+                                List<object> content = new List<object>();
+                                foreach (string node in ((string)properties[key]).Split(','))
+                                {
+                                    int nodeId = System.Int32.Parse(node);
+                                    if (nodeId != CurrentPageId && key != "Path")
+                                        content.Add(Simplify(_umbracoHelper.Content(nodeId)));
+                                }
+                                properties[key] = content;
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            properties[key] = properties[key];
+                        }
+                    }
+                }
+            }
+        }
     }
 }
