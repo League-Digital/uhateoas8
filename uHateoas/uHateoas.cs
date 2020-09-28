@@ -270,9 +270,9 @@ namespace uHateoas
                         if (IsDebug)
                             Logger.Info(GetType(), "uHateoas: Looking for " + cacheName + " in cache (duration is currently " + CacheHours + ":" + CacheMinutes + ")");
 
-                        Data = Umbraco.Core.Composing.Current.AppCaches.RuntimeCache
-                            .GetCacheItem<Dictionary<string, object>>(cacheName, () => ProcessRequest(model),
-                                new TimeSpan(CacheHours, CacheMinutes, CacheSeconds));
+                        var cache = Umbraco.Core.Composing.Current.AppCaches.RuntimeCache;
+                        var timespan = new TimeSpan(CacheHours, CacheMinutes, CacheSeconds);
+                        Data = cache.GetCacheItem<Dictionary<string, object>>(cacheName, () => ProcessRequest(model), timespan);
                     }
                 }
                 else
@@ -418,6 +418,63 @@ namespace uHateoas
                             var prop1 = SimplyfyProperty(pi, node);
                             properties.Add(prop1.Key, prop1.Value);
                             break;
+                    }
+                }
+
+                var useAllProperties = false;
+                var propertyNames = new List<string>();
+                if (!string.IsNullOrEmpty(RequestSelect))
+                {
+                    propertyNames = RequestSelect.ToLower().Split(',').ToList();
+                }
+
+                else
+                    useAllProperties = true;
+
+                foreach (IPublishedProperty pal in node.Properties)
+                {
+                    if (pal != null)
+                    {
+                        if (useAllProperties || propertyNames.Contains(pal.Alias.ToLower()))
+                        {
+                            var prop = SimplyfyProperty(pal, node);
+                            properties.Add(prop.Key, prop.Value);
+                        }
+                    }
+                }
+
+                if (propertyNames.Any())
+                {
+                    var properties1 = properties;
+                    var selectedProperties = new SortedDictionary<string, object>();
+
+                    foreach (var a in properties.Where(p => propertyNames.Contains(p.Key.ToLower())))
+                    {
+                        selectedProperties.Add(a.Key, properties1[a.Key]);
+                    }
+
+                    properties = selectedProperties;
+                }
+
+                ResolveContent(properties);
+
+                returnProperties.Add("properties", properties);
+
+                if (entities.Any())
+                {
+                    returnProperties.Add("entities", entities);
+                }
+
+                if (!SimpleJson)
+                {
+                    if (actions.Any())
+                    {
+                        returnProperties.Add("actions", actions);
+                    }
+
+                    if (links.Any())
+                    {
+                        returnProperties.Add("links", links);
                     }
                 }
                 return returnProperties;
@@ -810,6 +867,7 @@ namespace uHateoas
             return new KeyValuePair<string, object>(prop.Name, new { title = propTitle, value = val });
         }
 
+        // Get the Request from Methods passing or from Constructor
         private static HtmlHelper CreateHtmlHelper(object model)
         {
             var cc = new ControllerContext
@@ -1277,8 +1335,8 @@ namespace uHateoas
             string lastSegment = segments.LastOrDefault();
             string template = "";
 
-            //if (lastSegment != null && lastSegment != "/" && lastSegment != MainModel..UrlName && lastSegment != MainModel.UrlName + "/")
-            //    template = lastSegment;
+            if (lastSegment != null && lastSegment != "/" && lastSegment != MainModel.Name && lastSegment != MainModel.Name + "/")
+               template = lastSegment;
 
             string href = $"{Context.Request.Url.Scheme + "://"}{Context.Request.Url.Host}{node.Url}{template}";
 
