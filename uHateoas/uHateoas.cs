@@ -216,12 +216,6 @@ namespace uHateoas
             }
         }
 
-        /// <summary>
-        /// Process Current Model
-        /// </summary>
-        /// <param name="model"></param>
-        /// <param name="simple"></param>
-        /// <returns></returns>
         public Dictionary<string, object> Process(IPublishedContent model, bool simple = false)
         {
             MainModel = model;
@@ -293,11 +287,6 @@ namespace uHateoas
             return Data;
         }
 
-        /// <summary>
-        /// Process Helper Methods
-        /// </summary>
-        /// <param name="model"></param>
-        /// <returns></returns>
         private Dictionary<string, object> ProcessRequest(IPublishedContent model)
         {
             if (IsDebug)
@@ -629,7 +618,6 @@ namespace uHateoas
 
                 if (publish)
                 {
-                    //Attempt<PublishStatus> result = ContentService.SaveAndPublishWithStatus(newNode, CurrentUser.Id);
                     PublishResult result = ContentService.SaveAndPublish(newNode, "*", CurrentUser.Id);
                     node = _umbracoHelper.Content(result.Content.Id);
                 }
@@ -947,11 +935,11 @@ namespace uHateoas
         {
             KeyValuePair<string, object> val = new KeyValuePair<string, object>(alias, null);
             //PropertyType propType = newNode.PropertyTypes.FirstOrDefault(p => p.Alias == alias);
-
             //if (propType == null)
             //    return val;
-            //if (form[alias] == null)
-            //    return val;
+
+            if (form[alias] == null)
+                return val;
 
             //IDataTypeDefinition dtd = DataTypeService.GetDataTypeDefinitionById(propType.DataTypeDefinitionId);
 
@@ -1132,9 +1120,9 @@ namespace uHateoas
                 {
                     if (property != null && property.ToString().Contains(","))
                     {
-                        //property = string.Join(",",
-                        //    property.ToString().Split(',').Select(subKey => _umbracoHelper.TypedMedia(subKey).Url)
-                        //        .ToArray());
+                        property = string.Join(",",
+                            property.ToString().Split(',').Select(subKey => _umbracoHelper.Media(subKey).Url)
+                                .ToArray());
                     }
                     else if (property is IEnumerable<IPublishedContent> && ((IEnumerable<IPublishedContent>)property).Any())
                     {
@@ -1316,7 +1304,6 @@ namespace uHateoas
         private static string GetSimpleType(IDataType dtd)
         {
             string val;
-
             switch (dtd.DatabaseType)
             {
                 //case DataTypeDatabaseType.Date:
@@ -1373,70 +1360,70 @@ namespace uHateoas
         {
             if (!Context.Request.Params.AllKeys.Contains("action"))
             {
-                //IContentType currentContentType = ContentTypeService.GetContentType(node.ContentType.Id);
-                //if (currentContentType != null && currentContentType.AllowedContentTypes.Any() && CanCreate)
-                //{
-                //    AllowedContentTypes = ContentTypeService.GetAllContentTypes(currentContentType.AllowedContentTypes.Select(ct => ct.Id.Value).ToArray()).ToList();
-                //    if (AllowedContentTypes != null && AllowedContentTypes.Any())
-                //    {
-                //        foreach (IContentType ct in AllowedContentTypes)
-                //        {
-                //            classes = new SortedSet<string> { ct.Alias, "x-form" };
-                //            action = new Dictionary<string, object>
-                //            {
-                //                {"class", classes.ToArray()},
-                //                {"title", "Create @content".SmartReplace(new {content = ct.Name})},
-                //                {"method", "GET"},
-                //                {
-                //                    "href",
-                //                    GetHateoasHref(node, new {action = "create", doctype = ct.Alias, publish = "false"})
-                //                },
-                //                {"type", Context.Request.ContentType}
-                //            };
-                //            actions.Add(action);
-                //        }
-                //    }
-                //}
+                IContentType currentContentType = ContentTypeService.Get(node.ContentType.Id);
+                if (currentContentType != null && currentContentType.AllowedContentTypes.Any() && CanCreate)
+                {
+                    AllowedContentTypes = ContentTypeService.GetAll(currentContentType.AllowedContentTypes.Select(ct => ct.Id.Value).ToArray()).ToList();
+                    if (AllowedContentTypes != null && AllowedContentTypes.Any())
+                    {
+                        foreach (IContentType ct in AllowedContentTypes)
+                        {
+                            classes = new SortedSet<string> { ct.Alias, "x-form" };
+                            action = new Dictionary<string, object>
+                            {
+                                {"class", classes.ToArray()},
+                                {"title", "Create @content".SmartReplace(new {content = ct.Name})},
+                                {"method", "GET"},
+                                {
+                                    "href",
+                                    GetHateoasHref(node, new {action = "create", doctype = ct.Alias, publish = "false"})
+                                },
+                                {"type", Context.Request.ContentType}
+                            };
+                            actions.Add(action);
+                        }
+                    }
+                }
 
                 if (CanUpdate || CanDelete)
                 {
-                    //    if (currentContentType != null)
-                    //        classes = new SortedSet<string> { currentContentType.Alias, "x-form" };
+                    if (currentContentType != null)
+                        classes = new SortedSet<string> { currentContentType.Alias, "x-form" };
                 }
 
                 if (CanUpdate)
                 {
                     //update
-                    //action = new Dictionary<string, object>
-                    //{
-                    //    {"class", classes.ToArray()},
-                    //    {"title", "Update @content".SmartReplace(new {content = currentContentType?.Name})},
-                    //    {"method", "GET"},
-                    //    {
-                    //        "href",
-                    //        GetHateoasHref(node,
-                    //            new {action = "update", doctype = currentContentType?.Alias, publish = "false"})
-                    //    },
-                    //    {"type", Context.Request.ContentType}
-                    //};
+                    action = new Dictionary<string, object>
+                    {
+                        {"class", classes.ToArray()},
+                        {"title", "Update @content".SmartReplace(new {content = currentContentType?.Name})},
+                        {"method", "GET"},
+                        {
+                            "href",
+                            GetHateoasHref(node,
+                                new {action = "update", doctype = currentContentType?.Alias, publish = "false"})
+                        },
+                        {"type", Context.Request.ContentType}
+                    };
                     actions.Add(action);
                 }
 
                 if (CanDelete)
                 {
                     //delete
-                    //action = new Dictionary<string, object>
-                    //{
-                    //    {"class", classes.ToArray()},
-                    //    {"method", "GET"},
-                    //    {"title", "Remove @content".SmartReplace(new {content = currentContentType?.Name})},
-                    //    {
-                    //        "href",
-                    //        GetHateoasHref(node,
-                    //            new {action = "remove", doctype = currentContentType?.Alias, delete = "false"})
-                    //    },
-                    //    {"type", Context.Request.ContentType}
-                    //};
+                    action = new Dictionary<string, object>
+                    {
+                        {"class", classes.ToArray()},
+                        {"method", "GET"},
+                        {"title", "Remove @content".SmartReplace(new {content = currentContentType?.Name})},
+                        {
+                            "href",
+                            GetHateoasHref(node,
+                                new {action = "remove", doctype = currentContentType?.Alias, delete = "false"})
+                        },
+                        {"type", Context.Request.ContentType}
+                    };
                     actions.Add(action);
                 }
             }
@@ -1446,81 +1433,81 @@ namespace uHateoas
         {
             if (!string.IsNullOrEmpty(RequestAction) && RequestAction == "create" && !string.IsNullOrEmpty(RequestDocType))
             {
-                //IContentType currentContentType = ContentTypeService.GetContentType(node.ContentType.Id);
-                //if (currentContentType != null && currentContentType.AllowedContentTypes.Any())
-                //{
-                //    AllowedContentTypes = ContentTypeService.GetAllContentTypes(currentContentType.AllowedContentTypes.Select(ct => ct.Id.Value).ToArray()).ToList();
-                //    if (AllowedContentTypes != null && AllowedContentTypes.Any())
-                //    {
-                //        foreach (IContentType ct in AllowedContentTypes)
-                //        {
-                //            if (ct.Alias == RequestDocType)
-                //            {
-                //                classes = new SortedSet<string> { ct.Alias, "x-form" };
-                //                action = new Dictionary<string, object>
-                //                {
-                //                    {"class", classes.ToArray()},
-                //                    {"title", "Save @content".SmartReplace(new {content = ct.Name})},
-                //                    {"method", "POST"},
-                //                    {"action", GetHateoasHref(node, new {doctype = ct.Alias, publish = "true"})},
-                //                    {"type", Context.Request.ContentType}
-                //                };
+                IContentType currentContentType = ContentTypeService.Get(node.ContentType.Id);
+                if (currentContentType != null && currentContentType.AllowedContentTypes.Any())
+                {
+                    AllowedContentTypes = ContentTypeService.GetAll(currentContentType.AllowedContentTypes.Select(ct => ct.Id.Value).ToArray()).ToList();
+                    if (AllowedContentTypes != null && AllowedContentTypes.Any())
+                    {
+                        foreach (IContentType ct in AllowedContentTypes)
+                        {
+                            if (ct.Alias == RequestDocType)
+                            {
+                                classes = new SortedSet<string> { ct.Alias, "x-form" };
+                                action = new Dictionary<string, object>
+                                {
+                                    {"class", classes.ToArray()},
+                                    {"title", "Save @content".SmartReplace(new {content = ct.Name})},
+                                    {"method", "POST"},
+                                    {"action", GetHateoasHref(node, new {doctype = ct.Alias, publish = "true"})},
+                                    {"type", Context.Request.ContentType}
+                                };
 
-                //                actions.Add(action);
-                //            }
-                //        }
-                //    }
-                //}
+                                actions.Add(action);
+                            }
+                        }
+                    }
+                }
             }
 
             if (!string.IsNullOrEmpty(RequestAction) && RequestAction == "update")
             {
-                //IContentType ct = ContentTypeService.GetContentType(node.ContentType.Id);
-                //if (ct.Alias == RequestDocType)
-                //{
-                //    classes = new SortedSet<string> { ct.Alias, "x-form" };
-                //    action = new Dictionary<string, object>
-                //    {
-                //        {"class", classes.ToArray()},
-                //        {"title", "Update @content".SmartReplace(new {content = ct.Name})},
-                //        {"method", "PUT"},
-                //        {"action", GetHateoasHref(node, new {doctype = ct.Alias, publish = "true"})},
-                //        {"type", Context.Request.ContentType}
-                //    };
-                //    actions.Add(action);
-                //}
+                IContentType ct = ContentTypeService.Get(node.ContentType.Id);
+                if (ct.Alias == RequestDocType)
+                {
+                    classes = new SortedSet<string> { ct.Alias, "x-form" };
+                    action = new Dictionary<string, object>
+                    {
+                        {"class", classes.ToArray()},
+                        {"title", "Update @content".SmartReplace(new {content = ct.Name})},
+                        {"method", "PUT"},
+                        {"action", GetHateoasHref(node, new {doctype = ct.Alias, publish = "true"})},
+                        {"type", Context.Request.ContentType}
+                    };
+                    actions.Add(action);
+                }
             }
 
             if (!string.IsNullOrEmpty(RequestAction) && RequestAction == "remove")
             {
-                //IContentType ct = ContentTypeService.GetContentType(node.ContentType.Id);
-                //if (ct.Alias == RequestDocType)
-                //{
-                //    classes = new SortedSet<string> { ct.Alias, "x-form" };
-                //    action = new Dictionary<string, object>
-                //    {
-                //        {"class", classes.ToArray()},
-                //        {"title", "Remove @content".SmartReplace(new {content = ct.Name})},
-                //        {"method", "DELETE"},
-                //        {"action", GetHateoasHref(node, new {doctype = ct.Alias, delete = "false"})},
-                //        {"type", Context.Request.ContentType}
-                //    };
-                //    actions.Add(action);
-                //}
+                IContentType ct = ContentTypeService.Get(node.ContentType.Id);
+                if (ct.Alias == RequestDocType)
+                {
+                    classes = new SortedSet<string> { ct.Alias, "x-form" };
+                    action = new Dictionary<string, object>
+                    {
+                        {"class", classes.ToArray()},
+                        {"title", "Remove @content".SmartReplace(new {content = ct.Name})},
+                        {"method", "DELETE"},
+                        {"action", GetHateoasHref(node, new {doctype = ct.Alias, delete = "false"})},
+                        {"type", Context.Request.ContentType}
+                    };
+                    actions.Add(action);
+                }
             }
 
             if (!string.IsNullOrEmpty(RequestAction))
             {
-                //classes = new SortedSet<string> { node.DocumentTypeAlias };
-                //action = new Dictionary<string, object>
-                //{
-                //    {"class", classes.ToArray()},
-                //    {"title", "Cancel"},
-                //    {"method", "GET"},
-                //    {"action", GetHateoasHref(node, null)},
-                //    {"type", Context.Request.ContentType}
-                //};
-                //actions.Add(action);
+                classes = new SortedSet<string> { node.ContentType.Alias };
+                action = new Dictionary<string, object>
+                {
+                    {"class", classes.ToArray()},
+                    {"title", "Cancel"},
+                    {"method", "GET"},
+                    {"action", GetHateoasHref(node, null)},
+                    {"type", Context.Request.ContentType}
+                };
+                actions.Add(action);
             }
         }
 
