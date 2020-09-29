@@ -1364,11 +1364,11 @@ namespace uHateoas
             string val;
             switch (dtd.DatabaseType)
             {
-                //case DataTypeDatabaseType.Date:
+                //case Constants.DataTypes.DateTime;// DataTypeDatabaseType.Date:
                 //    val = "date";
                 //    break;
 
-                //case DataTypeDatabaseType.Integer:
+                //case DataTypeDatabaseType.interger:
                 //    val = "number";
                 //    break;
                 default:

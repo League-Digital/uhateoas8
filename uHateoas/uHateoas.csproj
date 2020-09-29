@@ -236,8 +236,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ApplicationComposer.cs" />
+    <Compile Include="ContentFinderByNiceUrlWithContentAccept.cs" />
+    <Compile Include="ContentFinderResolver.cs" />
     <Compile Include="FakeView.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SiteStartup.cs" />
     <Compile Include="uExtensions.cs" />
     <Compile Include="uHateoas.cs" />
   </ItemGroup>
