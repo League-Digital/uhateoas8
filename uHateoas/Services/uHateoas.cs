@@ -11,30 +11,32 @@ using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.Mvc;
+using System.Web.Routing;
+using uHateoas.Models;
 using Umbraco.Core;
 using Umbraco.Core.Cache;
+using Umbraco.Core.Composing;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
 using Umbraco.Core.Models.Membership;
 using Umbraco.Core.Models.PublishedContent;
 using Umbraco.Core.Services;
 using Umbraco.Web;
+using Umbraco.Web.Composing;
 using Umbraco.Web.Security;
 
-namespace uHateoas
+namespace uHateoas.Services
 {
 
     [Serializable]
     public partial class UHateoas : Dictionary<string, object>
     {
-        private Dictionary<string, object> Data { get; set; }
         private bool EncodeHtml { get; set; }
         private HttpContext Context { get; set; }
-        private UmbracoContext UContext { get; set; }
         private IContentTypeService ContentTypeService { get; set; }
         private IContentService ContentService { get; set; }
         private IDataTypeService DataTypeService { get; set; }
-        private UmbracoHelper _umbracoHelper { get; set; }
+        private UmbracoHelper UmbracoHelper { get; set; }
         private IUser CurrentUser { get; set; }
         private List<object> Entities { get; set; }
         private List<object> Actions { get; set; }
@@ -93,7 +95,7 @@ namespace uHateoas
         private void Initialise()
         {
             Context = HttpContext.Current;
-            _umbracoHelper = Umbraco.Web.Composing.Current.UmbracoHelper;
+            UmbracoHelper = Umbraco.Web.Composing.Current.UmbracoHelper;
 
             var template = string.Empty;
             var contentType = Context.Request.ContentType;
@@ -218,9 +220,11 @@ namespace uHateoas
 
         public Dictionary<string, object> Process(IPublishedContent model, bool simple = false)
         {
+            Dictionary<string, object> Data;
             MainModel = model;
             CurrentPageId = model.Id;
             SimpleJson = simple;
+
             var isLoggedIn = new HttpContextWrapper(HttpContext.Current).GetOwinContext().GetUmbracoAuthTicket();
             try
             {
@@ -299,7 +303,7 @@ namespace uHateoas
                 EncodeHtml = false;
                 if (!string.IsNullOrEmpty(RequestCurrentModel))
                 {
-                    model = _umbracoHelper.Content(RequestCurrentModel);
+                    model = UmbracoHelper.Content(RequestCurrentModel);
                 }
                 if (!string.IsNullOrEmpty(RequestEncodeHtml))
                 {
@@ -393,8 +397,10 @@ namespace uHateoas
                             break;
                         case "DocumentTypeAlias":
                         case "NodeTypeAlias":
-                            var classes = new SortedSet<string>();
-                            classes.Add(node.ContentType.Alias);
+                            var classes = new SortedSet<string>
+                            {
+                                node.ContentType.Alias
+                            };
                             if (!string.IsNullOrEmpty(RequestDescendants) && isRoot)
                             {
                                 classes.Add("Descendants");
@@ -564,7 +570,7 @@ namespace uHateoas
 
         private IPublishedContent RemoveNode(IPublishedContent model, bool delete)
         {
-            IPublishedContent node = model;
+            IPublishedContent node;
             try
             {
                 IContent deleteNode = ContentService.GetById(model.Id);
@@ -575,7 +581,7 @@ namespace uHateoas
                 else
                     ContentService.Unpublish(deleteNode, "*", CurrentUser.Id);
 
-                node = _umbracoHelper.Content(deleteNode.ParentId);
+                node = UmbracoHelper.Content(deleteNode.ParentId);
             }
             catch (Exception ex)
             {
@@ -586,7 +592,7 @@ namespace uHateoas
 
         private IPublishedContent UpdateNode(IPublishedContent model, bool publish)
         {
-            IPublishedContent node = model;
+            IPublishedContent node;
             try
             {
                 IContent updateNode = ContentService.GetById(model.Id);
@@ -621,12 +627,12 @@ namespace uHateoas
                 if (publish)
                 {
                     var result = ContentService.SaveAndPublish(updateNode, "*", CurrentUser.Id);
-                    node = _umbracoHelper.Content(result.Content.Id);
+                    node = UmbracoHelper.Content(result.Content.Id);
                 }
                 else
                 {
                     ContentService.Save(updateNode, CurrentUser.Id);
-                    node = _umbracoHelper.Content(updateNode.Id);
+                    node = UmbracoHelper.Content(updateNode.Id);
                 }
             }
             catch (Exception ex)
@@ -639,7 +645,7 @@ namespace uHateoas
 
         private IPublishedContent CreateNode(IPublishedContent model, string docType, bool publish)
         {
-            IPublishedContent node = model;
+            IPublishedContent node;
             try
             {
                 string json = GetPostedJson();
@@ -676,7 +682,7 @@ namespace uHateoas
                 if (publish)
                 {
                     PublishResult result = ContentService.SaveAndPublish(newNode, "*", CurrentUser.Id);
-                    node = _umbracoHelper.Content(result.Content.Id);
+                    node = UmbracoHelper.Content(result.Content.Id);
                 }
                 else
                 {
@@ -867,14 +873,10 @@ namespace uHateoas
             return new KeyValuePair<string, object>(prop.Name, new { title = propTitle, value = val });
         }
 
-        // Get the Request from Methods passing or from Constructor
-        private static HtmlHelper CreateHtmlHelper(object model)
+        private HtmlHelper CreateHtmlHelper(object model)
         {
-            var cc = new ControllerContext
-            {
-                //RequestContext = UmbracoContext.Current.HttpContext.Request.RequestContext
-            };
-            var viewContext = new ViewContext(cc, new FakeView(), new ViewDataDictionary(model), new TempDataDictionary(), new StringWriter());
+            var controllerContext = new ControllerContext();
+            var viewContext = new ViewContext(controllerContext, new FakeView(), new ViewDataDictionary(model), new TempDataDictionary(), new StringWriter());
             return new HtmlHelper(viewContext, new ViewPage());
         }
 
@@ -883,25 +885,10 @@ namespace uHateoas
             object val = prop.GetValue();
             var pubPropType = node.ContentType.GetPropertyType(prop.Alias);
             string propertyEditorAlias = pubPropType.Alias;
-            string propName = prop.Alias; // prop.PropertyTypeAlias.Substring(0, 1).ToUpper() + prop.PropertyTypeAlias.Substring(1);
+            string propName = prop.Alias;
             string propTitle = Regex.Replace(propName, "(\\B[A-Z])", " $1");
             if (val != null)
             {
-                //if (val is DynamicXml)
-                //{
-                //    try
-                //    {
-                //        XmlDocument doc = new XmlDocument();
-                //        doc.LoadXml(val.ToString());
-                //        var jsonText = JsonConvert.SerializeXmlNode(doc);
-                //        val = JsonConvert.DeserializeObject<ExpandoObject>(jsonText);
-                //    }
-                //    catch (Exception)
-                //    {
-                //        val = EncodeHtml ? Context.Server.HtmlEncode(prop.Value.ToString()) : prop.Value.ToString();
-                //    }
-                //}
-
                 val = ResolveMedia(propName, val);
                 val = ResolveToIds(propName, val);
                 if (!string.IsNullOrEmpty(RequestHtml) && string.Equals(RequestHtml, "false", StringComparison.OrdinalIgnoreCase))
@@ -945,7 +932,7 @@ namespace uHateoas
                                     if (item.IndexOf("umb://document", StringComparison.CurrentCultureIgnoreCase) >= 0)
                                     {
                                         var udi = Udi.Parse(item);
-                                        var content = _umbracoHelper.Content(udi);
+                                        var content = UmbracoHelper.Content(udi);
                                         newProps.Add(x.Name,
                                             content != null
                                                 ? JToken.FromObject(Simplify(content))
@@ -954,7 +941,7 @@ namespace uHateoas
                                     else if (item.IndexOf("umb://media", StringComparison.CurrentCultureIgnoreCase) >= 0)
                                     {
                                         var udi = Udi.Parse(item);
-                                        var media = _umbracoHelper.Media(udi);
+                                        var media = UmbracoHelper.Media(udi);
                                         newProps.Add(x.Name, media != null ? media.Url : x.Value.ToString());
                                     }
                                     else
@@ -974,8 +961,7 @@ namespace uHateoas
                     var model = prop.GetValue();
                     var html = CreateHtmlHelper(model);
 
-                    var asString = model as string;
-                    if (asString != null && string.IsNullOrEmpty(asString))
+                    if (model is string asString && string.IsNullOrEmpty(asString))
                     {
                         val = string.Empty;
                     }
@@ -989,33 +975,31 @@ namespace uHateoas
             return new KeyValuePair<string, object>(prop.Alias, new { title = propTitle, value = SetPropType(val, GetPropType(val)), type = GetPropType(val), propertyEditor = propertyEditorAlias });
         }
 
+        //TODO: GetValuePair
         private KeyValuePair<string, object> GetValuePair(string alias, Dictionary<string, object> form, IContent newNode)
         {
             KeyValuePair<string, object> val = new KeyValuePair<string, object>(alias, null);
-            //PropertyType propType = newNode.PropertyTypes.FirstOrDefault(p => p.Alias == alias);
-            //if (propType == null)
-            //    return val;
+            var propType = newNode.Properties.FirstOrDefault(p => p.Alias == alias);
+            if (propType == null)
+                return val;
 
             if (form[alias] == null)
                 return val;
 
-            //IDataTypeDefinition dtd = DataTypeService.GetDataTypeDefinitionById(propType.DataTypeDefinitionId);
+            var dtd = DataTypeService.GetDataType(propType.Id);
 
-            //switch (dtd.DatabaseType)
-            //{
-            //    case DataTypeDatabaseType.Date:
-            //        val = new KeyValuePair<string, object>(alias, DateTime.Parse(form[alias].ToString()));
-            //        break;
-
-            //    case DataTypeDatabaseType.Integer:
-            //        val = new KeyValuePair<string, object>(alias, Parse(form[alias].ToString()));
-            //        break;
-
-            //    default:
-            //        val = new KeyValuePair<string, object>(alias, form[alias].ToString());
-            //        break;
-
-            //}
+            switch (dtd.DatabaseType)
+            {
+                //case Constants.DataTypes.DateTime:
+                //    val = new KeyValuePair<string, object>(alias, DateTime.Parse(form[alias].ToString()));
+                //    break;
+                //case Constants.DataTypes.:
+                //    val = new KeyValuePair<string, object>(alias, Int32.Parse(form[alias].ToString()));
+                //    break;
+                default:
+                    val = new KeyValuePair<string, object>(alias, form[alias].ToString());
+                    break;
+            }
             return val;
         }
 
@@ -1075,6 +1059,7 @@ namespace uHateoas
                     case "sortorder":
                         sortedData = data.OrderByDescending(x => x.SortOrder);
                         break;
+                        // TODO: Resolve sortedData
                         //default:
                         //    sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ? (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
                         //    break;
@@ -1099,6 +1084,7 @@ namespace uHateoas
                     case "sortorder":
                         sortedData = data.OrderBy(x => x.SortOrder);
                         break;
+                        // TODO: Resolve sortedData
                         //default:
                         //    sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
                         //        (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
@@ -1139,6 +1125,7 @@ namespace uHateoas
                 else
                     descendants = model.Descendants(descendantsAlias);
 
+                // TODO: Resolve sortedData
                 //var descendantList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? descendants.Where(RequestWhere.ChangeBinary()) : descendants).ToList();
                 var descendantList = descendants;
                 List<object> descendantObjectList = descendantList.Select(x => Simplify(x)).Cast<object>().ToList();
@@ -1163,6 +1150,7 @@ namespace uHateoas
                 {
                     childList.AddRange(children.OrderBy(x => x.SortOrder));
                 }
+                // TODO: Resolve sortedData
                 //childList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? children.Where(RequestWhere.ChangeBinary()) : children).ToList();
                 List<object> childObjectList = childList.Select(x => Simplify(x)).Cast<object>().ToList();
                 entities.AddRange(childObjectList);
@@ -1179,13 +1167,13 @@ namespace uHateoas
                     if (property != null && property.ToString().Contains(","))
                     {
                         property = string.Join(",",
-                            property.ToString().Split(',').Select(subKey => _umbracoHelper.Media(subKey).Url)
+                            property.ToString().Split(',').Select(subKey => UmbracoHelper.Media(subKey).Url)
                                 .ToArray());
                     }
-                    else if (property is IEnumerable<IPublishedContent> && ((IEnumerable<IPublishedContent>)property).Any())
+                    else if (property is IEnumerable<IPublishedContent> enumerable && enumerable.Any())
                     {
                         var items = new List<string>();
-                        foreach (var mItem in (IEnumerable<IPublishedContent>)property)
+                        foreach (var mItem in enumerable)
                         {
                             if (mItem != null && !string.IsNullOrEmpty(mItem.Url))
                             {
@@ -1236,9 +1224,9 @@ namespace uHateoas
                                     property = new object();
                                 }
                             }
-                            else if (property is IPublishedContent)
+                            else if (property is IPublishedContent content)
                             {
-                                property = ((IPublishedContent)property).Id.ToString();
+                                property = content.Id.ToString();
                             }
                         }
                         catch (Exception ex)
@@ -1336,7 +1324,7 @@ namespace uHateoas
             string template = "";
 
             if (lastSegment != null && lastSegment != "/" && lastSegment != MainModel.Name && lastSegment != MainModel.Name + "/")
-               template = lastSegment;
+                template = lastSegment;
 
             string href = $"{Context.Request.Url.Scheme + "://"}{Context.Request.Url.Host}{node.Url}{template}";
 
@@ -1354,11 +1342,12 @@ namespace uHateoas
             IPublicAccessService publicAccessService = Umbraco.Core.Composing.Current.Services.PublicAccessService;
             if (publicAccessService.IsProtected(node.Path))
             {
-                return _umbracoHelper.MemberHasAccess(node.Path);
+                return UmbracoHelper.MemberHasAccess(node.Path);
             }
             return true;
         }
 
+        // TODO: Resolve GetSimpleType
         private static string GetSimpleType(IDataType dtd)
         {
             string val;
@@ -1583,7 +1572,7 @@ namespace uHateoas
                             {
                                 int nodeId = (Int32)properties[key];
                                 if (nodeId != CurrentPageId && key != "Path")
-                                    properties[key] = Simplify(_umbracoHelper.Content(nodeId));
+                                    properties[key] = Simplify(UmbracoHelper.Content(nodeId));
                             }
                             else if ((dynamic)properties[key].GetType() == typeof(string))
                             {
@@ -1592,7 +1581,7 @@ namespace uHateoas
                                 {
                                     int nodeId = System.Int32.Parse(node);
                                     if (nodeId != CurrentPageId && key != "Path")
-                                        content.Add(Simplify(_umbracoHelper.Content(nodeId)));
+                                        content.Add(Simplify(UmbracoHelper.Content(nodeId)));
                                 }
                                 properties[key] = content;
                             }

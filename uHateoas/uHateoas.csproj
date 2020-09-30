@@ -236,14 +236,14 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ApplicationComposer.cs" />
-    <Compile Include="ContentFinderByNiceUrlWithContentAccept.cs" />
-    <Compile Include="ContentFinderResolver.cs" />
-    <Compile Include="FakeView.cs" />
+    <Compile Include="Startup\ApplicationComposer.cs" />
+    <Compile Include="Startup\ContentFinderByNiceUrlWithContentAccept.cs" />
+    <Compile Include="Startup\ContentFinderResolver.cs" />
+    <Compile Include="Models\FakeView.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SiteStartup.cs" />
-    <Compile Include="uExtensions.cs" />
-    <Compile Include="uHateoas.cs" />
+    <Compile Include="Startup\SiteStartup.cs" />
+    <Compile Include="Utilities\uExtensions.cs" />
+    <Compile Include="Services\uHateoas.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

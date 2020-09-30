@@ -61,7 +61,7 @@ namespace uHateoas
                 if (changes)
                     webConfigApp.Save();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 //Logger.Error(MethodBase.GetCurrentMethod().DeclaringType, $"UHateoas CheckAppSettings Error: \"{ex.Message}\"", ex);
                 return false;
