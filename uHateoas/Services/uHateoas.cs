@@ -11,11 +11,9 @@ using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.Mvc;
-using System.Web.Routing;
 using uHateoas.Models;
 using Umbraco.Core;
 using Umbraco.Core.Cache;
-using Umbraco.Core.Composing;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
 using Umbraco.Core.Models.Membership;
@@ -31,7 +29,6 @@ namespace uHateoas.Services
     [Serializable]
     public partial class UHateoas : Dictionary<string, object>
     {
-        private bool EncodeHtml { get; set; }
         private HttpContext Context { get; set; }
         private IContentTypeService ContentTypeService { get; set; }
         private IContentService ContentService { get; set; }
@@ -70,8 +67,7 @@ namespace uHateoas.Services
         private string RequestNoCache { get; set; }
         private string RequestOrderBy { get; set; }
         private string RequestOrderByDesc { get; set; }
-
-        private readonly ILogger Logger;
+        public ILogger Logger { get; set; }
 
         public UHateoas()
         {
@@ -96,6 +92,7 @@ namespace uHateoas.Services
         {
             Context = HttpContext.Current;
             UmbracoHelper = Umbraco.Web.Composing.Current.UmbracoHelper;
+            Logger = Current.Logger;
 
             var template = string.Empty;
             var contentType = Context.Request.ContentType;
@@ -174,11 +171,11 @@ namespace uHateoas.Services
 
             QueryMaxItems = 1000;
             RequestTake = Context.Request["take"] ?? "";
-            Int32.TryParse(RequestTake, out int intRequestTake);
+            Int32.TryParse(RequestTake, out _);
             if (string.IsNullOrEmpty(RequestTake))
             {
                 RequestTake = QueryMaxItems.ToString();
-                intRequestTake = QueryMaxItems;
+                _ = QueryMaxItems;
             }
 
             RequestNoCache = Context.Request["nocache"] ?? "";
@@ -300,7 +297,7 @@ namespace uHateoas.Services
             Actions = new List<object>();
             try
             {
-                EncodeHtml = false;
+                bool EncodeHtml = false;
                 if (!string.IsNullOrEmpty(RequestCurrentModel))
                 {
                     model = UmbracoHelper.Content(RequestCurrentModel);
@@ -496,7 +493,6 @@ namespace uHateoas.Services
             Actions = new List<object>();
             try
             {
-                EncodeHtml = false;
                 if (CanCreate || CanUpdate || CanDelete)
                     Actions.AddRange(GetChildrenActions(model));
                 else
@@ -1356,7 +1352,6 @@ namespace uHateoas.Services
                 //case Constants.DataTypes.DateTime;// DataTypeDatabaseType.Date:
                 //    val = "date";
                 //    break;
-
                 //case DataTypeDatabaseType.interger:
                 //    val = "number";
                 //    break;
@@ -1364,7 +1359,6 @@ namespace uHateoas.Services
                     val = "text";
                     break;
             }
-
             return val;
         }
 
@@ -1390,7 +1384,6 @@ namespace uHateoas.Services
                                 {"description", propType.Description},
                                 {"propertyEditor", propType.PropertyEditorAlias}
                             };
-
                             var prevalues = dataTypeService.GetDataType(propType.DataTypeId);
                             if (prevalues != null)
                             {
@@ -1499,7 +1492,6 @@ namespace uHateoas.Services
                                     {"action", GetHateoasHref(node, new {doctype = ct.Alias, publish = "true"})},
                                     {"type", Context.Request.ContentType}
                                 };
-
                                 actions.Add(action);
                             }
                         }

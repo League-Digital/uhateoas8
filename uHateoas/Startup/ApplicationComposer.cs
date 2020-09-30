@@ -8,7 +8,7 @@ using Umbraco.Web.Routing;
 
 namespace uHateoas
 {
-    public class ApplicationComposer : ComponentComposer<SiteStartup>, IUserComposer
+    public class ApplicationComposer : ComponentComposer<ApplicationComponent>, IUserComposer
     {
         public override void Compose(Composition composition)
         {

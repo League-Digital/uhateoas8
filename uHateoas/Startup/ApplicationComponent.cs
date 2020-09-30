@@ -9,7 +9,7 @@ using Umbraco.Core.Services.Implement;
 
 namespace uHateoas
 {
-    public class SiteStartup : IComponent
+    public class ApplicationComponent : IComponent
     {
         public ILogger Logger { get; set; }
 

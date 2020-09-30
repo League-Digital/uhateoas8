@@ -238,10 +238,9 @@
   <ItemGroup>
     <Compile Include="Startup\ApplicationComposer.cs" />
     <Compile Include="Startup\ContentFinderByNiceUrlWithContentAccept.cs" />
-    <Compile Include="Startup\ContentFinderResolver.cs" />
     <Compile Include="Models\FakeView.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Startup\SiteStartup.cs" />
+    <Compile Include="Startup\ApplicationComponent.cs" />
     <Compile Include="Utilities\uExtensions.cs" />
     <Compile Include="Services\uHateoas.cs" />
   </ItemGroup>
