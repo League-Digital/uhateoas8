@@ -871,7 +871,11 @@ namespace uHateoas.Services
 
         private HtmlHelper CreateHtmlHelper(object model)
         {
-            var controllerContext = new ControllerContext();
+            var rc = Umbraco.Web.Composing.Current.UmbracoContext.HttpContext.Request.RequestContext;
+            var controllerContext = new ControllerContext()
+            {
+                RequestContext = rc
+            };
             var viewContext = new ViewContext(controllerContext, new FakeView(), new ViewDataDictionary(model), new TempDataDictionary(), new StringWriter());
             return new HtmlHelper(viewContext, new ViewPage());
         }
@@ -952,7 +956,7 @@ namespace uHateoas.Services
                     }
                 }
 
-                if (propertyEditorAlias == "Umbraco.Grid")
+                if (propertyEditorAlias == "modules")
                 {
                     var model = prop.GetValue();
                     var html = CreateHtmlHelper(model);
@@ -962,7 +966,9 @@ namespace uHateoas.Services
                         val = string.Empty;
                     }
                     else
+                    {
                         val = html.GetGridHtml(node, prop.Alias, "GenesisGrid-fluid");
+                    }
                 }
             }
             if (SimpleJson)
@@ -1163,7 +1169,7 @@ namespace uHateoas.Services
                     if (property != null && property.ToString().Contains(","))
                     {
                         property = string.Join(",",
-                            property.ToString().Split(',').Select(subKey => UmbracoHelper.Media(subKey).Url)
+                            property.ToString().Split(',').Select(x => UmbracoHelper.Media(x).Url)
                                 .ToArray());
                     }
                     else if (property is IEnumerable<IPublishedContent> enumerable && enumerable.Any())
@@ -1184,7 +1190,7 @@ namespace uHateoas.Services
                         property = mItem.Url;
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     property = "#";
                 }
