@@ -977,7 +977,6 @@ namespace uHateoas.Services
             return new KeyValuePair<string, object>(prop.Alias, new { title = propTitle, value = SetPropType(val, GetPropType(val)), type = GetPropType(val), propertyEditor = propertyEditorAlias });
         }
 
-        //TODO: GetValuePair
         private KeyValuePair<string, object> GetValuePair(string alias, Dictionary<string, object> form, IContent newNode)
         {
             KeyValuePair<string, object> val = new KeyValuePair<string, object>(alias, null);
@@ -988,16 +987,16 @@ namespace uHateoas.Services
             if (form[alias] == null)
                 return val;
 
-            var dtd = DataTypeService.GetDataType(propType.Id);
+            IDataType dtd = DataTypeService.GetDataType(propType.Id);
 
             switch (dtd.DatabaseType)
             {
-                //case Constants.DataTypes.DateTime:
-                //    val = new KeyValuePair<string, object>(alias, DateTime.Parse(form[alias].ToString()));
-                //    break;
-                //case Constants.DataTypes.:
-                //    val = new KeyValuePair<string, object>(alias, Int32.Parse(form[alias].ToString()));
-                //    break;
+                case ValueStorageType.Date:
+                    val = new KeyValuePair<string, object>(alias, DateTime.Parse(form[alias].ToString()));
+                    break;
+                case ValueStorageType.Integer:
+                    val = new KeyValuePair<string, object>(alias, Int32.Parse(form[alias].ToString()));
+                    break;
                 default:
                     val = new KeyValuePair<string, object>(alias, form[alias].ToString());
                     break;
@@ -1349,18 +1348,17 @@ namespace uHateoas.Services
             return true;
         }
 
-        // TODO: Resolve GetSimpleType
         private static string GetSimpleType(IDataType dtd)
         {
             string val;
             switch (dtd.DatabaseType)
             {
-                //case Constants.DataTypes.DateTime;// DataTypeDatabaseType.Date:
-                //    val = "date";
-                //    break;
-                //case DataTypeDatabaseType.interger:
-                //    val = "number";
-                //    break;
+                case ValueStorageType.Date:
+                    val = "date";
+                    break;
+                case ValueStorageType.Integer:
+                    val = "number";
+                    break;
                 default:
                     val = "text";
                     break;
@@ -1384,7 +1382,7 @@ namespace uHateoas.Services
                                 {"title", propType.Name},
                                 {"value", node == null ? "" : node.GetProperty(propType.Alias).GetValue()},
                                 {"group", propGroup.Name},
-                                {"type", dtd.DatabaseType}, //GetSimpleType(dtd)},
+                                {"type", GetSimpleType(dtd)},
                                 {"manditory", propType.Mandatory},
                                 {"validation", propType.ValidationRegExp},
                                 {"description", propType.Description},
