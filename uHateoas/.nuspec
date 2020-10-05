@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package>
+	<metadata>
+		<id>uHateoas</id>
+		<version>1.0.0</version>
+		<title>League Digital</owners>
+		<authors>League Digital</authors>
+		<requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<license type="expression">MIT</license>
+		<projectUrl>https://github.com/League-Digital/uhateoas8</projectUrl>
+		<iconUrl>https://www.leaguedigital.com/img/league/logo.png</iconUrl>
+		<description>League Digital uHateoas</description>
+		<releaseNotes>Initial Project</releaseNotes>
+		<copyright>$copyright$</copyright>
+		<tags>Tag1 Tag2</tags>
+		<dependencies>
+			<group targetFramework=".NETStandard2.1">
+				<dependency id="SampleDependency" version="1.0.0" />
+			</group>
+		</dependencies>
+	</metadata>
+</package>
