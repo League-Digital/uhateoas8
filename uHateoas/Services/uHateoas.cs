@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NPoco.Expressions;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -1048,22 +1049,18 @@ namespace uHateoas.Services
                     case "updatedate":
                         sortedData = data.OrderByDescending(x => x.UpdateDate);
                         break;
-
                     case "name":
                         sortedData = data.OrderByDescending(x => x.Name);
                         break;
-
                     case "createdate":
                         sortedData = data.OrderByDescending(x => x.CreateDate);
                         break;
-
                     case "sortorder":
                         sortedData = data.OrderByDescending(x => x.SortOrder);
                         break;
-                        // TODO: Resolve sortedData
-                        //default:
-                        //    sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ? (x.HasValue(RequestOrderByDesc) ? x.GetPropertyValue<DateTime>(RequestOrderByDesc).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderByDesc) ?? "");
-                        //    break;
+                    default:
+                        sortedData = data.OrderByDescending(x => x.GetProperty(RequestOrderByDesc).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ? (x.HasValue(RequestOrderByDesc) ? x.GetProperty(RequestOrderByDesc).Value<DateTime>().ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetProperty(RequestOrderByDesc).Value<string>() ?? "");
+                        break;
                 }
             }
             else if (!string.IsNullOrEmpty(RequestOrderBy))
@@ -1085,11 +1082,10 @@ namespace uHateoas.Services
                     case "sortorder":
                         sortedData = data.OrderBy(x => x.SortOrder);
                         break;
-                        // TODO: Resolve sortedData
-                        //default:
-                        //    sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
-                        //        (x.HasValue(RequestOrderBy) ? x.GetPropertyValue<DateTime>(RequestOrderBy).ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetPropertyValue<string>(RequestOrderBy) ?? "");
-                        //    break;
+                    default:
+                        sortedData = data.OrderBy(x => x.GetProperty(RequestOrderBy).Alias.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0 ?
+                            (x.HasValue(RequestOrderBy) ? x.GetProperty(RequestOrderBy).Value<DateTime>().ToString("yyyyMMddHHmm") : DateTime.MinValue.ToString("yyyyMMddHHmm")) : x.GetProperty(RequestOrderBy).Value<string>() ?? "");
+                        break;
                 }
             }
             else
