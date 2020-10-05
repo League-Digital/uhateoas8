@@ -1191,6 +1191,7 @@ namespace uHateoas.Services
                 }
                 catch (Exception ex)
                 {
+                    Logger.Error(MethodBase.GetCurrentMethod().DeclaringType, ex);
                     property = "#";
                 }
             }
