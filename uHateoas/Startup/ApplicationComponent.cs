@@ -26,7 +26,7 @@ namespace uHateoas
 
         private void EmptyCache(string alias)
         {
-            Logger.Info(GetType(), "Emptying uHateoas cache");
+            //Logger.Info(GetType(), "Emptying uHateoas cache");
             if (ConfigurationManager.AppSettings.AllKeys.Contains($"{UExtensions.AppSettingsPrefix}.CacheDocTypes"))
             {
                 Umbraco.Core.Composing.Current.AppCaches.RuntimeCache.ClearByKey(UExtensions.CachePrefix + alias + "-");

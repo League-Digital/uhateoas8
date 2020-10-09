@@ -2,8 +2,8 @@
 <package>
 	<metadata>
 		<id>uHateoas</id>
-		<version>1.0.2</version>
-		<title>League Digital</owners>
+		<version>1.0.3</version>
+		<title>League Digital</title>
 		<authors>League Digital</authors>
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<license type="expression">MIT</license>

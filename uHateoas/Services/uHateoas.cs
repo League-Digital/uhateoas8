@@ -1,6 +1,5 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using NPoco.Expressions;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -68,7 +67,7 @@ namespace uHateoas.Services
         private string RequestNoCache { get; set; }
         private string RequestOrderBy { get; set; }
         private string RequestOrderByDesc { get; set; }
-        public ILogger Logger { get; set; }
+        //public ILogger Logger { get; set; }
 
         public UHateoas()
         {
@@ -93,7 +92,7 @@ namespace uHateoas.Services
         {
             Context = HttpContext.Current;
             UmbracoHelper = Umbraco.Web.Composing.Current.UmbracoHelper;
-            Logger = Current.Logger;
+            //Logger = Current.Logger;
 
             var template = string.Empty;
             var contentType = Context.Request.ContentType;
@@ -144,7 +143,9 @@ namespace uHateoas.Services
                     CacheSeconds = System.Int32.TryParse(cacheData[2], out int cacheSeconds) ? cacheSeconds : 0;
                 }
                 if (IsDebug)
-                    Logger.Info(GetType(), "uHateoas: Caching is set up  (duration is currently " + CacheHours + ":" + CacheMinutes + ":" + CacheSeconds + ")");
+                {
+                    //Logger.Info(GetType(), "uHateoas: Caching is set up  (duration is currently " + CacheHours + ":" + CacheMinutes + ":" + CacheSeconds + ")");
+                }
             }
             else
             {
@@ -261,7 +262,9 @@ namespace uHateoas.Services
                     else if (UExtensions.SkipDomainCheck() || !string.IsNullOrEmpty(RequestNoCache))
                     {
                         if (IsDebug)
-                            Logger.Info(GetType(), "uHateoas: Skipping caching - SkipDomainCheck: " + UExtensions.SkipDomainCheck() + " RequestNoCache: " + RequestNoCache);
+                        {
+                            //Logger.Info(GetType(), "uHateoas: Skipping caching - SkipDomainCheck: " + UExtensions.SkipDomainCheck() + " RequestNoCache: " + RequestNoCache);
+                        }
                         Data = ProcessRequest(model);
                     }
                     else
@@ -270,7 +273,9 @@ namespace uHateoas.Services
                                         UExtensions.GetHashString(Context.Request.Url.PathAndQuery.ToLower());
 
                         if (IsDebug)
-                            Logger.Info(GetType(), "uHateoas: Looking for " + cacheName + " in cache (duration is currently " + CacheHours + ":" + CacheMinutes + ")");
+                        {
+                            //Logger.Info(GetType(), "uHateoas: Looking for " + cacheName + " in cache (duration is currently " + CacheHours + ":" + CacheMinutes + ")");
+                        }
 
                         var cache = Umbraco.Core.Composing.Current.AppCaches.RuntimeCache;
                         var timespan = new TimeSpan(CacheHours, CacheMinutes, CacheSeconds);
@@ -292,7 +297,9 @@ namespace uHateoas.Services
         private Dictionary<string, object> ProcessRequest(IPublishedContent model)
         {
             if (IsDebug)
-                Logger.Info(GetType(), "uHateoas: Item was not found in cache " + model.Id + " - " + model.Name);
+            {
+                //Logger.Info(GetType(), "uHateoas: Item was not found in cache " + model.Id + " - " + model.Name);
+            }
 
             Entities = new List<object>();
             Actions = new List<object>();
@@ -617,7 +624,7 @@ namespace uHateoas.Services
                     }
                     catch (Exception ex)
                     {
-                        Logger.Debug<UHateoas>("Node property error: \"{0}\"", ex.Message);
+                        //Logger.Debug<UHateoas>("Node property error: \"{0}\"", ex.Message);
                     }
                 }
 
@@ -672,7 +679,7 @@ namespace uHateoas.Services
                     }
                     catch (Exception ex)
                     {
-                        Logger.Debug<UHateoas>("New node property error: \"{0}\"", ex.Message);
+                        //Logger.Debug<UHateoas>("New node property error: \"{0}\"", ex.Message);
                     }
                 }
 
@@ -1123,7 +1130,7 @@ namespace uHateoas.Services
                     descendants = model.Descendants(descendantsAlias);
 
                 // TODO: Resolve sortedData
-                //var descendantList = SortedData(!string.IsNullOrEmpty(RequestWhere) ? descendants.Where(RequestWhere.ChangeBinary()) : descendants).ToList();
+                //var descendantListSortedData = SortedData(!string.IsNullOrEmpty(RequestWhere) ? descendants.Where(RequestWhere.ChangeBinary()) : descendants).ToList();
                 var descendantList = descendants;
                 List<object> descendantObjectList = descendantList.Select(x => Simplify(x)).Cast<object>().ToList();
                 entities.AddRange(descendantObjectList);
@@ -1187,7 +1194,7 @@ namespace uHateoas.Services
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error(MethodBase.GetCurrentMethod().DeclaringType, ex);
+                    //Logger.Error(MethodBase.GetCurrentMethod().DeclaringType, ex);
                     property = "#";
                 }
             }
