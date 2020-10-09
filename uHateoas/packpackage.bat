@@ -1,0 +1,1 @@
+nuget pack uHateoas.csproj -Properties Configuration=Release

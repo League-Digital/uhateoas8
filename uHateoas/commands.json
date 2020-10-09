@@ -4,6 +4,11 @@
       "fileName": "cmd.exe",
       "workingDirectory": ".",
       "arguments": "/c pushpackage.bat"
+    },
+    "packpackage": {
+      "fileName": "cmd.exe",
+      "workingDirectory": ".",
+      "arguments": "/c packpackage.bat"
     }
   }
 }

@@ -247,6 +247,7 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="commands.json" />
+    <None Include="packpackage.bat" />
     <None Include="pushpackage.bat" />
     <None Include="packages.config" />
   </ItemGroup>
@@ -259,4 +260,8 @@
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\Umbraco.SqlServerCE.4.0.0.1\build\Umbraco.SqlServerCE.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Umbraco.SqlServerCE.4.0.0.1\build\Umbraco.SqlServerCE.targets'))" />
   </Target>
+  <PropertyGroup>
+    <PostBuildEvent>
+    </PostBuildEvent>
+  </PropertyGroup>
 </Project>
