@@ -305,27 +305,31 @@ namespace uHateoas.Services
             Actions = new List<object>();
             try
             {
-                bool EncodeHtml = false;
-                if (!string.IsNullOrEmpty(RequestCurrentModel))
+                if (model != null)
                 {
-                    model = UmbracoHelper.Content(RequestCurrentModel);
-                }
-                if (!string.IsNullOrEmpty(RequestEncodeHtml))
-                {
-                    EncodeHtml = RequestEncodeHtml.AsBoolean();
-                }
-                if (!string.IsNullOrEmpty(RequestAncestor))
-                {
-                    var ancestor = model.AncestorOrSelf(RequestAncestor);
-                    return Simplify(ancestor);
-                }
+                    bool EncodeHtml = false;
+                    if (!string.IsNullOrEmpty(RequestCurrentModel))
+                    {
+                        model = UmbracoHelper.Content(RequestCurrentModel);
+                    }
+                    if (!string.IsNullOrEmpty(RequestEncodeHtml))
+                    {
+                        EncodeHtml = RequestEncodeHtml.AsBoolean();
+                    }
+                    if (!string.IsNullOrEmpty(RequestAncestor))
+                    {
+                        var ancestor = model.AncestorOrSelf(RequestAncestor);
+                        return Simplify(ancestor);
+                    }
 
-                Entities.AddRange(GetDescendantEntities(model));
-                Entities.AddRange(GetChildrenEntities(model));
-                if (!SimpleJson && (CanCreate || CanUpdate || CanDelete))
-                    Actions.AddRange(GetChildrenActions(model));
+                    Entities.AddRange(GetDescendantEntities(model));
+                    Entities.AddRange(GetChildrenEntities(model));
+                    if (!SimpleJson && (CanCreate || CanUpdate || CanDelete))
+                        Actions.AddRange(GetChildrenActions(model));
 
-                return Simplify(model, true, Entities, Actions);
+                    return Simplify(model, true, Entities, Actions);
+                }
+                return new Dictionary<string, object>();
             }
             catch (Exception ex)
             {
@@ -363,7 +367,7 @@ namespace uHateoas.Services
                         case "Version":
                             break;
                         case "Parent":
-                            if (node.Parent != null)
+                            if (node != null && node.Parent != null)
                                 if (HasAccess(node.Parent))
                                 {
                                     links.Add(new
@@ -377,57 +381,69 @@ namespace uHateoas.Services
                                 }
                             break;
                         case "Url":
-                            links.Add(new
+                            if (node != null)
                             {
-                                rel = new[] { "_Self", node.ContentType.Alias },
-                                title = node.Name,
-                                href = GetHateoasHref(node, null)
-                            });
-                            properties.Add(pi.Name, node.Url);
+                                links.Add(new
+                                {
+                                    rel = new[] { "_Self", node.ContentType.Alias },
+                                    title = node.Name,
+                                    href = GetHateoasHref(node, null)
+                                });
+                                properties.Add(pi.Name, node.Url);
+                            }
                             break;
                         case "Children":
                         case "GetChildrenAsList":
-                            foreach (var child in node.Children.ToList())
+                            if (node != null)
                             {
-                                if (HasAccess(child))
+                                foreach (var child in node.Children.ToList())
                                 {
-                                    links.Add(new
+                                    if (HasAccess(child))
                                     {
-                                        rel = new[] { "_Child", child.ContentType.Alias },
-                                        title = child.Name,
-                                        href = GetHateoasHref(child, null)
-                                    });
+                                        links.Add(new
+                                        {
+                                            rel = new[] { "_Child", child.ContentType.Alias },
+                                            title = child.Name,
+                                            href = GetHateoasHref(child, null)
+                                        });
+                                    }
                                 }
                             }
                             break;
                         case "DocumentTypeAlias":
                         case "NodeTypeAlias":
-                            var classes = new SortedSet<string>
+                            if (node != null)
                             {
-                                node.ContentType.Alias
-                            };
-                            if (!string.IsNullOrEmpty(RequestDescendants) && isRoot)
-                            {
-                                classes.Add("Descendants");
+                                var classes = new SortedSet<string>
+                                {
+                                    node.ContentType.Alias
+                                };
+                                if (!string.IsNullOrEmpty(RequestDescendants) && isRoot)
+                                {
+                                    classes.Add("Descendants");
+                                }
+                                if (!string.IsNullOrEmpty(RequestChildren) && isRoot)
+                                {
+                                    classes.Add("Children");
+                                }
+                                if (showClass)
+                                {
+                                    if (SimpleJson)
+                                        returnProperties.Add("class", string.Join(",", classes.ToArray()));
+                                    else
+                                        returnProperties.Add("class", classes.ToArray());
+                                    returnProperties.Add("title", node.Name);
+                                }
+                                var prop = SimplyfyProperty(pi, node);
+                                properties.Add(prop.Key, prop.Value);
                             }
-                            if (!string.IsNullOrEmpty(RequestChildren) && isRoot)
-                            {
-                                classes.Add("Children");
-                            }
-                            if (showClass)
-                            {
-                                if (SimpleJson)
-                                    returnProperties.Add("class", string.Join(",", classes.ToArray()));
-                                else
-                                    returnProperties.Add("class", classes.ToArray());
-                                returnProperties.Add("title", node.Name);
-                            }
-                            var prop = SimplyfyProperty(pi, node);
-                            properties.Add(prop.Key, prop.Value);
                             break;
                         default:
-                            var prop1 = SimplyfyProperty(pi, node);
-                            properties.Add(prop1.Key, prop1.Value);
+                            if (node != null)
+                            {
+                                var prop1 = SimplyfyProperty(pi, node);
+                                properties.Add(prop1.Key, prop1.Value);
+                            }
                             break;
                     }
                 }
@@ -442,16 +458,19 @@ namespace uHateoas.Services
                 else
                     useAllProperties = true;
 
-                foreach (IPublishedProperty pal in node.Properties)
+                if (node != null)
                 {
-                    if (pal != null)
+                    foreach (IPublishedProperty pal in node.Properties)
                     {
-                        if (useAllProperties || propertyNames.Contains(pal.Alias.ToLower()))
+                        if (pal != null)
                         {
-                            var prop = SimplyfyProperty(pal, node);
-                            properties.Add(prop.Key, prop.Value);
+                            if (useAllProperties || propertyNames.Contains(pal.Alias.ToLower()))
+                            {
+                                var prop = SimplyfyProperty(pal, node);
+                                properties.Add(prop.Key, prop.Value);
+                            }
                         }
-                    }
+                    } 
                 }
 
                 if (propertyNames.Any())
@@ -622,7 +641,7 @@ namespace uHateoas.Services
                         if (kvp.Value != null)
                             updateNode.SetValue(kvp.Key, kvp.Value);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         //Logger.Debug<UHateoas>("Node property error: \"{0}\"", ex.Message);
                     }
@@ -677,7 +696,7 @@ namespace uHateoas.Services
                         if (kvp.Value != null)
                             newNode.SetValue(kvp.Key, kvp.Value);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         //Logger.Debug<UHateoas>("New node property error: \"{0}\"", ex.Message);
                     }
@@ -1106,7 +1125,7 @@ namespace uHateoas.Services
         private List<object> GetDescendantEntities(IPublishedContent model)
         {
             List<object> entities = new List<object>();
-            if (!string.IsNullOrEmpty(RequestDescendants))
+            if (model != null && !string.IsNullOrEmpty(RequestDescendants))
             {
                 IEnumerable<IPublishedContent> descendants;
                 string descendantsAlias = RequestDescendants;
@@ -1141,7 +1160,7 @@ namespace uHateoas.Services
         private List<object> GetChildrenEntities(IPublishedContent currentModel)
         {
             List<object> entities = new List<object>();
-            if (!string.IsNullOrEmpty(RequestChildren))
+            if (currentModel != null && !string.IsNullOrEmpty(RequestChildren))
             {
                 IEnumerable<IPublishedContent> children = currentModel.Children;
                 List<IPublishedContent> childList = new List<IPublishedContent>();
@@ -1192,7 +1211,7 @@ namespace uHateoas.Services
                         property = mItem.Url;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     //Logger.Error(MethodBase.GetCurrentMethod().DeclaringType, ex);
                     property = "#";
@@ -1345,7 +1364,7 @@ namespace uHateoas.Services
         private bool HasAccess(IPublishedContent node)
         {
             IPublicAccessService publicAccessService = Umbraco.Core.Composing.Current.Services.PublicAccessService;
-            if (publicAccessService.IsProtected(node.Path))
+            if (node != null && publicAccessService.IsProtected(node.Path))
             {
                 return UmbracoHelper.MemberHasAccess(node.Path);
             }
@@ -1593,6 +1612,16 @@ namespace uHateoas.Services
                     }
                 }
             }
+        }
+
+        private static GuidUdi GetUdi(IContent content)
+        {
+            return new GuidUdi(content.ContentType.ToString(), content.Key);
+        }
+
+        private static GuidUdi GetUdi(IPublishedContent content)
+        {
+            return new GuidUdi(content.ContentType.ItemType.ToString(), content.Key);
         }
     }
 }
