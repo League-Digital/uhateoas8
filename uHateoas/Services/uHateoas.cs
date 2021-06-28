@@ -67,6 +67,7 @@ namespace uHateoas.Services
         private string RequestNoCache { get; set; }
         private string RequestOrderBy { get; set; }
         private string RequestOrderByDesc { get; set; }
+        private string PublishedModelsNamespace { get; set; }
         //public ILogger Logger { get; set; }
 
         public UHateoas()
@@ -118,6 +119,12 @@ namespace uHateoas.Services
                     outputType = "text/xml";
                 }
             }
+
+            PublishedModelsNamespace =
+                ConfigurationManager.AppSettings.AllKeys.Contains(
+                    $"{UExtensions.AppSettingsPrefix}.PublishedModelsNamespace")
+                    ? ConfigurationManager.AppSettings[$"{UExtensions.AppSettingsPrefix}.PublishedModelsNamespace"]
+                    : "PublishedModels";
 
             IsDebug = ConfigurationManager.AppSettings.AllKeys.Contains($"{UExtensions.AppSettingsPrefix}.Debug") &&
                  ConfigurationManager.AppSettings[$"{UExtensions.AppSettingsPrefix}.Debug"] == "1";
@@ -350,7 +357,7 @@ namespace uHateoas.Services
                     throw new Exception("Access Denied");
 
                 Dictionary<string, object> returnProperties = new Dictionary<string, object>();
-                SortedDictionary<string, object> properties = new SortedDictionary<string, object>();
+                SortedDictionary<string, object> properties = new SortedDictionary<string, object>(StringComparer.CurrentCultureIgnoreCase);
                 PropertyInfo[] props = typeof(IPublishedContent).GetProperties();
                 List<object> links = new List<object>();
 
@@ -476,7 +483,7 @@ namespace uHateoas.Services
                 if (propertyNames.Any())
                 {
                     var properties1 = properties;
-                    var selectedProperties = new SortedDictionary<string, object>();
+                    var selectedProperties = new SortedDictionary<string, object>(StringComparer.CurrentCultureIgnoreCase);
 
                     foreach (var a in properties.Where(p => propertyNames.Contains(p.Key.ToLower())))
                     {
@@ -1190,7 +1197,7 @@ namespace uHateoas.Services
                     if (property != null && property.ToString().Contains(","))
                     {
                         property = string.Join(",",
-                            property.ToString().Split(',').Select(x => UmbracoHelper.Media(x).Url)
+                            property.ToString().Split(',').Select(x => UmbracoHelper.Media(x)?.Url)
                                 .ToArray());
                     }
                     else if (property is IEnumerable<IPublishedContent> enumerable && enumerable.Any())
@@ -1603,6 +1610,12 @@ namespace uHateoas.Services
                                         content.Add(Simplify(UmbracoHelper.Content(nodeId)));
                                 }
                                 properties[key] = content;
+                            }
+                            else if (properties[key].GetType().BaseType.FullName.ToLower().IndexOf(PublishedModelsNamespace.ToLower()) >=0)
+                            {
+                                int nodeId = (properties[key] as PublishedContentModel).Id;
+                                if (nodeId != CurrentPageId && key != "Path")
+                                    properties[key] = Simplify(UmbracoHelper.Content(nodeId));
                             }
                         }
                         catch (Exception)
