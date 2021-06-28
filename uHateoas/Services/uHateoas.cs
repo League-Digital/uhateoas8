@@ -369,6 +369,8 @@ namespace uHateoas.Services
                         case "ContentType":
                         case "PropertiesAsList":
                         case "ChildrenAsList":
+                        case "ChildrenForAllCultures":
+                        case "TemplateId":
                         case "Properties":
                         case "Item":
                         case "Version":
@@ -927,6 +929,21 @@ namespace uHateoas.Services
                 val = ResolveToIds(propName, val);
                 if (!string.IsNullOrEmpty(RequestHtml) && string.Equals(RequestHtml, "false", StringComparison.OrdinalIgnoreCase))
                     val = val.ToString().StripHtml();
+
+                if (val.GetType().BaseType.FullName.ToLower().IndexOf(PublishedModelsNamespace.ToLower()) >= 0)
+                {
+                    if (!string.IsNullOrEmpty(RequestResolveContent))
+                    {
+                        if (!RequestResolveContent.Split(',').Contains(propName))
+                        {
+                            val = ((PublishedContentModel) val).Id;
+                        }
+                    }
+                    else
+                    {
+                        val = ((PublishedContentModel)val).Id;
+                    }
+                }
 
                 if (propertyEditorAlias == "Umbraco.MultipleTextstring")
                 {
