@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Dynamic;
@@ -374,6 +375,7 @@ namespace uHateoas.Services
                         case "Properties":
                         case "Item":
                         case "Version":
+                        case "Cultures":
                             break;
                         case "Parent":
                             if (node != null && node.Parent != null)
@@ -475,7 +477,7 @@ namespace uHateoas.Services
                         {
                             if (useAllProperties || propertyNames.Contains(pal.Alias.ToLower()))
                             {
-                                var prop = SimplyfyProperty(pal, node);
+                                var prop = SimplifyProperty(pal, node);
                                 properties.Add(prop.Key, prop.Value);
                             }
                         }
@@ -916,7 +918,7 @@ namespace uHateoas.Services
             return new HtmlHelper(viewContext, new ViewPage());
         }
 
-        private KeyValuePair<string, object> SimplyfyProperty(IPublishedProperty prop, IPublishedContent node)
+        private KeyValuePair<string, object> SimplifyProperty(IPublishedProperty prop, IPublishedContent node)
         {
             object val = prop.GetValue();
             var pubPropType = node.ContentType.GetPropertyType(prop.Alias);
@@ -930,7 +932,18 @@ namespace uHateoas.Services
                 if (!string.IsNullOrEmpty(RequestHtml) && string.Equals(RequestHtml, "false", StringComparison.OrdinalIgnoreCase))
                     val = val.ToString().StripHtml();
 
-                if (val.GetType().BaseType.FullName.ToLower().IndexOf(PublishedModelsNamespace.ToLower()) >= 0)
+                //if (val is IEnumerable<IPublishedContent>)
+                //{
+                //    var a = new List<int>();
+                //    foreach (var i in val as IEnumerable<IPublishedContent>)
+                //    {
+                //        a.Add(i.Id);
+                //    }
+                //    val = a;
+                        
+                //}
+
+                if (val.GetType().FullName.ToLower().IndexOf(PublishedModelsNamespace.ToLower()) >= 0)
                 {
                     if (!string.IsNullOrEmpty(RequestResolveContent))
                     {
@@ -941,7 +954,14 @@ namespace uHateoas.Services
                     }
                     else
                     {
-                        val = ((PublishedContentModel)val).Id;
+                        if (val is IEnumerable PublishedContentModel)
+                        {
+                            val = ""; // (from i in (val as IEnumerable<PublishedElementModel>) select i.Key).ToList();
+                        }
+                        else
+                        {
+                            val = ((PublishedContentModel)val).Id;
+                        }
                     }
                 }
 
@@ -1628,7 +1648,8 @@ namespace uHateoas.Services
                                 }
                                 properties[key] = content;
                             }
-                            else if (properties[key].GetType().BaseType.FullName.ToLower().IndexOf(PublishedModelsNamespace.ToLower()) >=0)
+                            else if ( (properties[key].GetType().BaseType.FullName.ToLower().IndexOf(PublishedModelsNamespace.ToLower()) >=0) ||
+                                (properties[key].GetType().FullName.ToLower().IndexOf(PublishedModelsNamespace.ToLower()) >= 0) )
                             {
                                 int nodeId = (properties[key] as PublishedContentModel).Id;
                                 if (nodeId != CurrentPageId && key != "Path")
