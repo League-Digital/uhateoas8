@@ -44,15 +44,15 @@ By default these three templates are associated with Content-Type headers that a
 ###Content-Type templates ( web.config )
 ```xml   
 <appSettings>
-  <add key="WG2K.Hypermedia.Templates.enabled" value="true" />
-  <add key="WG2K.Hypermedia.Templates.text/umbraco+json" value="uhateoas" />
-  <add key="WG2K.Hypermedia.Templates.text/json" value="ujson" />
-  <add key="WG2K.Hypermedia.Templates.text/xml" value="uxml" />
+  <add key="League.Hypermedia.Templates.enabled" value="true" />
+  <add key="League.Hypermedia.Templates.text/umbraco+json" value="uhateoas" />
+  <add key="League.Hypermedia.Templates.text/json" value="ujson" />
+  <add key="League.Hypermedia.Templates.text/xml" value="uxml" />
 </appSettings>
 ``` 
 ```
 Adding additional views/templates can be done simply by adding a new setting to appSettings for example : 
-<add key="WG2K.Hypermedia.Templates.text/rss+xml" value="urss" /> 
+<add key="League.Hypermedia.Templates.text/rss+xml" value="urss" /> 
 ```
 ###The uhateoas.cshtml view/template
 ```c#
@@ -61,7 +61,7 @@ The simplest of all the templates
 Instantiate an instance of uHateoas and call Process
 */
 @inherits Umbraco.Web.Mvc.UmbracoTemplatePage
-@using wg2k.umbraco
+@using League.umbraco
 @((new uHateoas(Model)).Process())
 ```
 
@@ -71,7 +71,7 @@ Instantiate an instance of uHateoas and call Process
 This example adds an additional boolean parameter to tell the API to output it as simple JSON
 */
 @inherits Umbraco.Web.Mvc.UmbracoTemplatePage
-@using wg2k.umbraco
+@using League.umbraco
 @(new uHateoas(Model, true).Process())
 ``` 
 
@@ -81,7 +81,7 @@ This example adds an additional boolean parameter to tell the API to output it a
 For xml we simply need to add the name of the "root" node for the xml doc as an optional parameter to the Process method.
 */
 @inherits Umbraco.Web.Mvc.UmbracoTemplatePage
-@using wg2k.umbraco
+@using League.umbraco
 @((new uHateoas(Model, true)).Process("root"))
 ```
 
